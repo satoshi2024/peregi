@@ -22,7 +22,7 @@
       <div class="tableBar">
         <el-input
           v-model="input"
-          placeholder="请输入员工姓名"
+          placeholder="従業員の名前を入力してください"
           style="width: 250px"
           clearable
            @keyup.enter.native="handleQuery"
@@ -38,7 +38,7 @@
           type="primary"
           @click="addMemberHandle('add')"
         >
-          + 添加员工
+          + 従業員を追加
         </el-button>
       </div>
       <el-table
@@ -48,19 +48,19 @@
       >
         <el-table-column
           prop="name"
-          label="员工姓名"
+          label="従業員の名前"
         ></el-table-column>
         <el-table-column
           prop="username"
-          label="账号"
+          label="アカウント"
         ></el-table-column>
         <el-table-column
           prop="phone"
-          label="手机号"
+          label="携帯番号"
         ></el-table-column>
-        <el-table-column label="账号状态">
+        <el-table-column label="アカウントの状態">
           <template slot-scope="scope">
-            {{ String(scope.row.status) === '0' ? '已禁用' : '正常' }}
+            {{ String(scope.row.status) === '0' ? '無効' : '正常' }}
           </template>
         </el-table-column>
         <el-table-column
@@ -85,7 +85,7 @@
               @click="statusHandle(scope.row)"
               v-if="user === 'admin'"
             >
-              {{ scope.row.status == '1' ? '禁用' : '启用' }}
+              {{ scope.row.status == '1' ? '無効' : '正常' }}
             </el-button>
           </template>
         </el-table-column>
@@ -144,7 +144,7 @@
                 this.counts = res.data.total
               }
             }).catch(err => {
-              this.$message.error('请求出错了：' + err)
+              this.$message.error('リクエストがエラーになりました：' + err)
             })
           },
           handleQuery() {
@@ -157,13 +157,13 @@
               window.parent.menuHandle({
                 id: '2',
                 url: '/backend/page/member/add.html',
-                name: '添加员工'
+                name: '従業員を追加'
               },true)
             } else {
               window.parent.menuHandle({
                 id: '2',
                 url: '/backend/page/member/add.html?id='+st,
-                name: '修改员工'
+                name: '従業員情報を変更'
               },true)
             }
           },
@@ -171,19 +171,19 @@
           statusHandle (row) {
             this.id = row.id
             this.status = row.status
-            this.$confirm('确认调整该账号的状态?', '提示', {
-              'confirmButtonText': '确定',
-              'cancelButtonText': '取消',
+            this.$confirm('アカウントの状態を調整することを確認しますか?', 'メッセージを表示', {
+              'confirmButtonText': '確認',
+              'cancelButtonText': 'キャンセル',
               'type': 'warning'
               }).then(() => {
               enableOrDisableEmployee({ 'id': this.id, 'status': !this.status ? 1 : 0 }).then(res => {
                 console.log('enableOrDisableEmployee',res)
                 if (String(res.code) === '1') {
-                  this.$message.success('账号状态更改成功！')
+                  this.$message.success('アカウントの状態が正常に変更された')
                   this.handleQuery()
                 }
               }).catch(err => {
-                this.$message.error('请求出错了：' + err)
+                this.$message.error('エラー：' + err)
               })
             })
           },
