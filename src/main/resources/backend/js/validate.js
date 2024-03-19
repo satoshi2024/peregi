@@ -39,9 +39,7 @@ function checkPhone (rule, value, callback){
   // let phoneReg = /(^1[3|4|5|6|7|8|9]\d{9}$)|(^09\d{8}$)/;
   if (value == "") {
     callback(new Error("携帯番号を入力してください"))
-  } else if (!isCellPhone(value)) {//引入methods中封装的检查手机格式的方法
-    callback(new Error("正しい携帯番号を入力してください"))
-  } else {
+  } else   {
     callback()
   }
 }
