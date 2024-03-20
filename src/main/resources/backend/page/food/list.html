@@ -117,11 +117,11 @@
           </template>
         </el-table-column>
       </el-table>
-      <el-pagination
+      <el-pagination background
         class="pageList"
         :page-sizes="[10, 20, 30, 40]"
         :page-size="pageSize"
-        layout="total, sizes, prev, pager, next, jumper"
+        layout="prev, pager, next"
         :total="counts"
         @size-change="handleSizeChange"
         :current-page.sync="page"
