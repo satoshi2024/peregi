@@ -5,7 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- *一般的な返り値
+ * 通一般的な返り値
  * @param <T>
  */
 @Data

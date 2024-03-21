@@ -16,7 +16,7 @@
       <div class="tableBar">
         <el-input
           v-model="input"
-          placeholder="请输入菜品名称"
+          placeholder="料理名を入力してください"
           style="width: 250px"
           clearable
           @keyup.enter.native="handleQuery"
@@ -29,14 +29,14 @@
           ></i>
         </el-input>
         <div class="tableLab">
-          <span class="span-btn delBut non" @click="deleteHandle('批量', null)">批量删除</span>
-          <span class="span-btn blueBug non" @click="statusHandle('1')">批量启售</span>
-          <span style="border:none;" class="span-btn delBut non" @click="statusHandle('0')">批量停售</span>
+          <span class="span-btn delBut non" @click="deleteHandle('批量', null)">一括削除</span>
+          <span class="span-btn blueBug non" @click="statusHandle('1')">一括販売</span>
+          <span style="border:none;" class="span-btn delBut non" @click="statusHandle('0')">一括販売停止</span>
           <el-button
             type="primary"
             @click="addFoodtype('add')"
           >
-            + 新建菜品
+            + 単品を追加
           </el-button>
         </div>
       </div>
@@ -52,9 +52,9 @@
         ></el-table-column>
         <el-table-column
           prop="name"
-          label="菜品名称"
+          label="料理名"
         ></el-table-column>
-        <el-table-column prop="image" label="图片" align="center">
+        <el-table-column prop="image" label="写真" align="center">
           <template slot-scope="{ row }">
             <el-image style="width: auto; height: 40px; border:none;cursor: pointer;" 
             :src="getImage(row.image)" 
@@ -67,25 +67,25 @@
         </el-table-column>
         <el-table-column
           prop="categoryName"
-          label="菜品分类"
+          label="料理のカテゴリ"
         ></el-table-column>
-        <el-table-column label="售价">
+        <el-table-column label="価格">
           <template slot-scope="scope">
             <span style="margin-right: 10px;">￥{{ scope.row.price/100 }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="售卖状态">
+        <el-table-column label="販売状態">
           <template slot-scope="scope">
-            <span style="margin-right: 10px;">{{ scope.row.status == '0' ? '停售' : '启售' }}</span>
+            <span style="margin-right: 10px;">{{ scope.row.status == '0' ? '売り切れ' : '販売中' }}</span>
           </template>
         </el-table-column>
         <el-table-column
           prop="updateTime"
-          label="最后操作时间"
+          label="最後作成時間"
         >
         </el-table-column>
         <el-table-column
-          label="操作"
+          label="作成"
           width="160"
           align="center"
         >
@@ -96,7 +96,7 @@
               class="blueBug"
               @click="addFoodtype(scope.row.id)"
             >
-              修改
+              変更
             </el-button>
             <el-button
               type="text"
@@ -104,15 +104,15 @@
               class="blueBug"
               @click="statusHandle(scope.row)"
             >
-              {{ scope.row.status == '0' ? '启售' : '停售' }}
+              {{ scope.row.status == '0' ? '販売中' : '売り切れ' }}
             </el-button>
             <el-button
               type="text"
               size="small"
               class="delBut non"
-              @click="deleteHandle('单删', scope.row.id)"
+              @click="deleteHandle('単一の削除', scope.row.id)"
             >
-              删除
+              削除
             </el-button>
           </template>
         </el-table-column>
@@ -170,7 +170,7 @@
                 this.counts = res.data.total
               }
             }).catch(err => {
-              this.$message.error('请求出错了：' + err)
+              this.$message.error('えらー：' + err)
             })
           },
           getImage (image) {
@@ -186,37 +186,37 @@
               window.parent.menuHandle({
                 id: '4',
                 url: '/backend/page/food/add.html',
-                name: '添加菜品'
+                name: '料理を追加'
               },true)
             } else {
               window.parent.menuHandle({
                 id: '4',
                 url: '/backend/page/food/add.html?id='+st,
-                name: '修改菜品'
+                name: '料理を変更'
               },true)
             }
           },
 
           // 删除
           deleteHandle (type, id) {
-            if (type === '批量' && id === null) {
+            if (type === '一括' && id === null) {
               if (this.checkList.length === 0) {
-                return this.$message.error('请选择删除对象')
+                return this.$message.error('削除する対象を選択してください')
               }
             }
-            this.$confirm('确认删除该菜品, 是否继续?', '确定删除', {
-              'confirmButtonText': '确定',
-              'cancelButtonText': '取消',
+            this.$confirm('料理の削除を確認します、続けますか?', '削除を決定', {
+              'confirmButtonText': '確認',
+              'cancelButtonText': 'キャンセル',
             }).then(() => {
-              deleteDish(type === '批量' ? this.checkList.join(',') : id).then(res => {
+              deleteDish(type === '一括' ? this.checkList.join(',') : id).then(res => {
                 if (res.code === 1) {
-                  this.$message.success('删除成功！')
+                  this.$message.success('削除された！')
                   this.handleQuery()
                 } else {
-                  this.$message.error(res.msg || '操作失败')
+                  this.$message.error(res.msg || '操作失敗')
                 }
               }).catch(err => {
-                this.$message.error('请求出错了：' + err)
+                this.$message.error('えらー：' + err)
               })
             })
           },
@@ -226,7 +226,7 @@
             let params = {}
             if (typeof row === 'string' ) {
               if (this.checkList.length === 0) {
-                this.$message.error('批量操作，请先勾选操作菜品！')
+                this.$message.error('一括操作を行う前に、操作する料理を先にチェックしてください！')
                 return false
               }
               params.id = this.checkList.join(',')
@@ -236,21 +236,21 @@
               params.status = row.status ? '0' : '1'
             }
             this.dishState = params
-            this.$confirm('确认更改该菜品状态?', '提示', {
-              'confirmButtonText': '确定',
-              'cancelButtonText': '取消',
+            this.$confirm('料理の状態を変更しますか?', '注意', {
+              'confirmButtonText': '確認',
+              'cancelButtonText': 'キャンセル',
               'type': 'warning'
             }).then(() => {
               // 起售停售---批量起售停售接口
               dishStatusByStatus(this.dishState).then(res => {
                 if (res.code === 1) {
-                  this.$message.success('菜品状态已经更改成功！')
+                  this.$message.success('料理の状態が正常に変更された！')
                   this.handleQuery()
                 } else {
-                  this.$message.error(res.msg || '操作失败')
+                  this.$message.error(res.msg || '操作失敗')
                 }
               }).catch(err => {
-                  this.$message.error('请求出错了：' + err)
+                  this.$message.error('えらー：' + err)
               })
             })
           },

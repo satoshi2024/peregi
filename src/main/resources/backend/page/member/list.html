@@ -56,7 +56,7 @@
         ></el-table-column>
         <el-table-column
           prop="phone"
-          label="携帯番号"
+          label="電話番号"
         ></el-table-column>
         <el-table-column label="アカウントの状態">
           <template slot-scope="scope">
@@ -76,7 +76,7 @@
               @click="addMemberHandle(scope.row.id)"
               :class="{notAdmin:user !== 'admin'}"
             >
-              编辑
+              変更
             </el-button>
             <el-button
               type="text"

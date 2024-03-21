@@ -1,22 +1,16 @@
 package com.peregi.filter;
 
-import java.io.IOException;
+import com.alibaba.fastjson.JSON;
+import com.peregi.common.BaseContext;
+import com.peregi.common.R;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.util.AntPathMatcher;
 
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
+import javax.servlet.*;
 import javax.servlet.annotation.WebFilter;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-
-import org.springframework.util.AntPathMatcher;
-
-import com.alibaba.fastjson.JSON;
-import com.peregi.common.R;
-
-import lombok.extern.slf4j.Slf4j;
+import java.io.IOException;
 
 /**
  * 用户のログインが完了しているかどうかを確認し
@@ -42,9 +36,11 @@ public class LoginCheckFilter implements Filter{
                 "/employee/login",
                 "/employee/logout",
                 "/backend/**",
-                "/front/**"
+                "/front/**",
+                "/common/**",
+                "/user/sendMsg",
+                "/user/login"
         };
-
 
         //2、現在のリクエストを処理する必要があるかどうかを判断します
         boolean check = check(urls, requestURI);
@@ -56,15 +52,30 @@ public class LoginCheckFilter implements Filter{
             return;
         }
 
-        //4、ログイン状態を判断し、ログインしている場合は直接通過させます
+        //4-1、ログイン状態を判断し、ログインしている場合は直接通過させます
         if(request.getSession().getAttribute("employee") != null){
             log.info("ユーザーがログインし,ユーザーIDは：{}",request.getSession().getAttribute("employee"));
+
+            Long empId = (Long) request.getSession().getAttribute("employee");
+            BaseContext.setCurrentId(empId);
+
+            filterChain.doFilter(request,response);
+            return;
+        }
+
+        //4-2、判断登录状态，如果已登录，则直接放行
+        if(request.getSession().getAttribute("user") != null){
+            log.info("用户已登录，用户id为：{}",request.getSession().getAttribute("user"));
+
+            Long userId = (Long) request.getSession().getAttribute("user");
+            BaseContext.setCurrentId(userId);
+
             filterChain.doFilter(request,response);
             return;
         }
 
         log.info("ユーザーはログインしていません");
-        //5、ログインしないの場合、未ログインの結果を返します。データをクライアントページに出力ストリーム方式で応答し
+        //5、如果未登录则返回未登录结果，通过输出流方式向客户端页面响应数据
         response.getWriter().write(JSON.toJSONString(R.error("NOTLOGIN")));
         return;
 

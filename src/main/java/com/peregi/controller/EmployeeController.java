@@ -12,8 +12,6 @@ import org.springframework.util.DigestUtils;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
-import java.time.LocalDateTime;
-
 /**
  * @Author:Chikai_Cho
  * @Date 2024/03/16 19:58
@@ -22,7 +20,7 @@ import java.time.LocalDateTime;
 @Slf4j
 @RestController
 @RequestMapping("/employee")
-public class EmployeeServiceController {
+public class EmployeeController {
 
     @Autowired
     private EmployeeService employeeService;
@@ -33,8 +31,9 @@ public class EmployeeServiceController {
      * @param employee
      * @return
      */
-    @PostMapping("login")
-    public R<Employee> login(HttpServletRequest request, @RequestBody Employee employee){
+    @PostMapping("/login")
+    public R<Employee> login(HttpServletRequest request,@RequestBody Employee employee){
+
         //1、ページから送信されたパスワード（password）をMD5ハッシュ処理する
         String password = employee.getPassword();
         password = DigestUtils.md5DigestAsHex(password.getBytes());
@@ -78,7 +77,6 @@ public class EmployeeServiceController {
 
     /**
      * 新しい従業員を追加
-     * @param request
      * @param employee
      * @return
      */
@@ -89,14 +87,14 @@ public class EmployeeServiceController {
         //初期パスワードを「123456」に設定し、MD5ハッシュ処理を行います
         employee.setPassword(DigestUtils.md5DigestAsHex("123456".getBytes()));
 
-        employee.setCreateTime(LocalDateTime.now());
-        employee.setUpdateTime(LocalDateTime.now());
+        //employee.setCreateTime(LocalDateTime.now());
+        //employee.setUpdateTime(LocalDateTime.now());
 
         //現在ログインしているユーザーのIDを取得します
-        Long empId = (Long) request.getSession().getAttribute("employee");
+        //Long empId = (Long) request.getSession().getAttribute("employee");
 
-        employee.setCreateUser(empId);
-        employee.setUpdateUser(empId);
+        //employee.setCreateUser(empId);
+        //employee.setUpdateUser(empId);
 
         employeeService.save(employee);
 
@@ -111,7 +109,7 @@ public class EmployeeServiceController {
      * @return
      */
     @GetMapping("/page")
-    public R<Page> page(int page, int pageSize, String name){
+    public R<Page> page(int page,int pageSize,String name){
         log.info("page = {},pageSize = {},name = {}" ,page,pageSize,name);
 
         //ページネーションコンストラクターを構築する
@@ -132,7 +130,6 @@ public class EmployeeServiceController {
 
     /**
      * IDに基づいて従業員情報を変更します
-     * @param request
      * @param employee
      * @return
      */
@@ -140,9 +137,10 @@ public class EmployeeServiceController {
     public R<String> update(HttpServletRequest request,@RequestBody Employee employee){
         log.info(employee.toString());
 
-        Long empId = (Long)request.getSession().getAttribute("employee");
-        employee.setUpdateTime(LocalDateTime.now());
-        employee.setUpdateUser(empId);
+        long id = Thread.currentThread().getId();
+        //Long empId = (Long)request.getSession().getAttribute("employee");
+        //employee.setUpdateTime(LocalDateTime.now());
+        //employee.setUpdateUser(empId);
         employeeService.updateById(employee);
 
         return R.success("従業員情報の変更に成功した");
@@ -155,7 +153,7 @@ public class EmployeeServiceController {
      */
     @GetMapping("/{id}")
     public R<Employee> getById(@PathVariable Long id){
-        log.info("IDに基づいて従業員情報を検索し");
+        log.info("IDに基づいて従業員情報を検索し...");
         Employee employee = employeeService.getById(id);
         if(employee != null){
             return R.success(employee);

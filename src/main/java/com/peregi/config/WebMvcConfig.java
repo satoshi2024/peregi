@@ -13,6 +13,7 @@ import java.util.List;
 @Slf4j
 @Configuration
 public class WebMvcConfig extends WebMvcConfigurationSupport {
+
     /**
      * 静的リソースのマッピングを設定し
      * @param registry
@@ -25,7 +26,7 @@ public class WebMvcConfig extends WebMvcConfigurationSupport {
     }
 
     /**
-     * メッセージ・コンバーターによるmvcフレームワークの拡張
+     * 扩展mvc框架的消息转换器
      * @param converters
      */
     @Override
