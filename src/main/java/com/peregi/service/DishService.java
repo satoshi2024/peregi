@@ -10,12 +10,12 @@ import com.peregi.entity.Dish;
  */
 public interface DishService extends IService<Dish> {
 
-    //新增菜品，同时插入菜品对应的口味数据，需要操作两张表：dish、dish_flavor
+    //新しい料理を追加し、同時に料理に対応する味のデータを挿入する必要があります。この操作では、dishテーブルとdish_flavorテーブルの両方に対して操作を行い
     public void saveWithFlavor(DishDto dishDto);
 
-    //根据id查询菜品信息和对应的口味信息
+    //IDに基づいて料理情報と対応する味の情報を検索
     public DishDto getByIdWithFlavor(Long id);
 
-    //更新菜品信息，同时更新对应的口味信息
+    //料理情報を更新し、同時に対応する味の情報も更新
     public void updateWithFlavor(DishDto dishDto);
 }

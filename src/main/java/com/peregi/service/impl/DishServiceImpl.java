@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
+
 /**
  * @Author:Chikai_Cho
  * @Date 2024/03/20 19:59
@@ -23,49 +24,51 @@ import java.util.stream.Collectors;
  */
 @Service
 @Slf4j
-public class DishServiceImpl extends ServiceImpl<DishMapper,Dish> implements DishService {
+public class DishServiceImpl extends ServiceImpl<DishMapper, Dish> implements DishService {
 
     @Autowired
     private DishFlavorService dishFlavorService;
 
     /**
-     * 新增菜品，同时保存对应的口味数据
+     * 新しい料理を追加し、それに対応する味のデータも保存
+     *
      * @param dishDto
      */
     @Transactional
     public void saveWithFlavor(DishDto dishDto) {
-        //保存菜品的基本信息到菜品表dish
+        //料理の基本情報を料理テーブル（dish）に保存
         this.save(dishDto);
 
-        Long dishId = dishDto.getId();//菜品id
+        Long dishId = dishDto.getId();//料理のID
 
-        //菜品口味
+        //料理の味
         List<DishFlavor> flavors = dishDto.getFlavors();
         flavors = flavors.stream().map((item) -> {
             item.setDishId(dishId);
             return item;
         }).collect(Collectors.toList());
 
-        //保存菜品口味数据到菜品口味表dish_flavor
+        //料理の味のデータを料理の味のテーブル（dish_flavor）に保存
         dishFlavorService.saveBatch(flavors);
 
     }
 
     /**
-     * 根据id查询菜品信息和对应的口味信息
+     * IDに基づいて料理情報と対応する味の情報を検索
+     *
      * @param id
      * @return
      */
     public DishDto getByIdWithFlavor(Long id) {
-        //查询菜品基本信息，从dish表查询
+        //料理の基本情報を検索します。dishテーブルから検索
         Dish dish = this.getById(id);
 
         DishDto dishDto = new DishDto();
-        BeanUtils.copyProperties(dish,dishDto);
+        BeanUtils.copyProperties(dish, dishDto);
 
-        //查询当前菜品对应的口味信息，从dish_flavor表查询
+        //現在の料理に対応する味の情報を検索します。dish_flavorテーブルから検索
         LambdaQueryWrapper<DishFlavor> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(DishFlavor::getDishId,dish.getId());
+        queryWrapper.eq(DishFlavor::getDishId, dish.getId());
         List<DishFlavor> flavors = dishFlavorService.list(queryWrapper);
         dishDto.setFlavors(flavors);
 
@@ -78,13 +81,13 @@ public class DishServiceImpl extends ServiceImpl<DishMapper,Dish> implements Dis
         //更新dish表基本信息
         this.updateById(dishDto);
 
-        //清理当前菜品对应口味数据---dish_flavor表的delete操作
+        //現在の料理に関連する味のデータを削除します。dish_flavorテーブルの削除操作を行い
         LambdaQueryWrapper<DishFlavor> queryWrapper = new LambdaQueryWrapper();
-        queryWrapper.eq(DishFlavor::getDishId,dishDto.getId());
+        queryWrapper.eq(DishFlavor::getDishId, dishDto.getId());
 
         dishFlavorService.remove(queryWrapper);
 
-        //添加当前提交过来的口味数据---dish_flavor表的insert操作
+        //現在の送信された味のデータを追加します。dish_flavorテーブルの挿入操作を行い
         List<DishFlavor> flavors = dishDto.getFlavors();
 
         flavors = flavors.stream().map((item) -> {

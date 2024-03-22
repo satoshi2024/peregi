@@ -37,7 +37,7 @@ public class DishController {
     private CategoryService categoryService;
 
     /**
-     * 新增菜品
+     * 料理を追加
      * @param dishDto
      * @return
      */
@@ -47,11 +47,11 @@ public class DishController {
 
         dishService.saveWithFlavor(dishDto);
 
-        return R.success("新增菜品成功");
+        return R.success("料理が追加された");
     }
 
     /**
-     * 菜品信息分页查询
+     * 料理情報のページネーション検索
      * @param page
      * @param pageSize
      * @param name
@@ -60,21 +60,21 @@ public class DishController {
     @GetMapping("/page")
     public R<Page> page(int page,int pageSize,String name){
 
-        //构造分页构造器对象
+        //ページネーションビルダーオブジェクトを構築
         Page<Dish> pageInfo = new Page<>(page,pageSize);
         Page<DishDto> dishDtoPage = new Page<>();
 
-        //条件构造器
+        //条件ビルダー
         LambdaQueryWrapper<Dish> queryWrapper = new LambdaQueryWrapper<>();
-        //添加过滤条件
+        //フィルター条件を追加
         queryWrapper.like(name != null,Dish::getName,name);
-        //添加排序条件
+        //ソート条件を追加
         queryWrapper.orderByDesc(Dish::getUpdateTime);
 
-        //执行分页查询
+        //ページネーション検索を実行
         dishService.page(pageInfo,queryWrapper);
 
-        //对象拷贝
+        //オブジェクトのコピー
         BeanUtils.copyProperties(pageInfo,dishDtoPage,"records");
 
         List<Dish> records = pageInfo.getRecords();
@@ -84,8 +84,8 @@ public class DishController {
 
             BeanUtils.copyProperties(item,dishDto);
 
-            Long categoryId = item.getCategoryId();//分类id
-            //根据id查询分类对象
+            Long categoryId = item.getCategoryId();
+            //IDに基づいてカテゴリオブジェクトを検索
             Category category = categoryService.getById(categoryId);
 
             if(category != null){
@@ -101,7 +101,7 @@ public class DishController {
     }
 
     /**
-     * 根据id查询菜品信息和对应的口味信息
+     * IDに基づいて料理情報と対応する味の情報を検索
      * @param id
      * @return
      */
@@ -114,7 +114,7 @@ public class DishController {
     }
 
     /**
-     * 修改菜品
+     * 料理を変更
      * @param dishDto
      * @return
      */
@@ -124,39 +124,19 @@ public class DishController {
 
         dishService.updateWithFlavor(dishDto);
 
-        return R.success("修改菜品成功");
+        return R.success("料理の変更が成功した");
     }
 
-    /**
-     * 根据条件查询对应的菜品数据
-     * @param dish
-     * @return
-     */
-    /*@GetMapping("/list")
-    public R<List<Dish>> list(Dish dish){
-        //构造查询条件
-        LambdaQueryWrapper<Dish> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(dish.getCategoryId() != null ,Dish::getCategoryId,dish.getCategoryId());
-        //添加条件，查询状态为1（起售状态）的菜品
-        queryWrapper.eq(Dish::getStatus,1);
-
-        //添加排序条件
-        queryWrapper.orderByAsc(Dish::getSort).orderByDesc(Dish::getUpdateTime);
-
-        List<Dish> list = dishService.list(queryWrapper);
-
-        return R.success(list);
-    }*/
 
     @GetMapping("/list")
     public R<List<DishDto>> list(Dish dish){
-        //构造查询条件
+        //クエリ条件を構築
         LambdaQueryWrapper<Dish> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(dish.getCategoryId() != null ,Dish::getCategoryId,dish.getCategoryId());
-        //添加条件，查询状态为1（起售状态）的菜品
+        //状態が1（販売中）の料理を検索するための条件を追加
         queryWrapper.eq(Dish::getStatus,1);
 
-        //添加排序条件
+        //ソート条件を追加
         queryWrapper.orderByAsc(Dish::getSort).orderByDesc(Dish::getUpdateTime);
 
         List<Dish> list = dishService.list(queryWrapper);
@@ -167,7 +147,7 @@ public class DishController {
             BeanUtils.copyProperties(item,dishDto);
 
             Long categoryId = item.getCategoryId();//分类id
-            //根据id查询分类对象
+            //IDに基づいてカテゴリオブジェクトを検索
             Category category = categoryService.getById(categoryId);
 
             if(category != null){
@@ -175,7 +155,7 @@ public class DishController {
                 dishDto.setCategoryName(categoryName);
             }
 
-            //当前菜品的id
+            //現在の料理のID
             Long dishId = item.getId();
             LambdaQueryWrapper<DishFlavor> lambdaQueryWrapper = new LambdaQueryWrapper<>();
             lambdaQueryWrapper.eq(DishFlavor::getDishId,dishId);
