@@ -160,6 +160,31 @@
           color: #F56C6C;
           margin-right: 4px;
       }
+      #combo-add-app .uploadImg {
+        display: flex; /* 使用 Flexbox 布局 */
+        flex-wrap: nowrap; /* 不换行 */
+        white-space: nowrap; /* 不换行 */
+      }
+    </style>
+    <style>
+      .avatar-uploader1 .el-upload-list{
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+      }
+      .avatar-uploader1 .el-upload-list__item {
+        width: 120px; /* 设置每个列表项的宽度 */
+        margin-right: 20px; /* 设置列表项之间的间距 */
+        margin-bottom: 20px; /* 设置列表项下方的间距 */
+      }
+
+      .avatar-uploader1 .el-upload-list__item:last-child {
+        margin-right: 0; /* 最后一个列表项不设置右边距 */
+      }
+
+      .uploadImg .el-form-item__content{
+        width: 100% !important;
+      }
     </style>
   </head>
   <body>
@@ -225,18 +250,22 @@
             </el-form-item>
           </div>
           <div>
-            <el-form-item label="コース写真:" class="uploadImg">
+            <el-form-item label="コース写真:" class="uploadImg" label="Label" prop="field" style="width: 100%;">
               <el-upload
-                class="avatar-uploader"
+                class="avatar-uploader1"
                 action="/common/upload"
-                :show-file-list="false"
+                :show-file-list="true"
+                multiple
+                list-type="picture-card"
                 :on-success="handleAvatarSuccess"
                 :on-change="onChange"
+
                 ref="upload"
               >
-                <img v-if="imageUrl" :src="imageUrl" class="avatar"></img>
-                <i v-else class="el-icon-plus avatar-uploader-icon"></i>
+
+                <i v-if="!imageUrl" class="el-icon-plus1 avatar-uploader-icon1"></i>
               </el-upload>
+
             </el-form-item>
           </div>
           <div class="address">

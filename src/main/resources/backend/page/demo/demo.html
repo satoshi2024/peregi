@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ファイルのアップロード</title>
+    <!-- 引入样式 -->
+    <link rel="stylesheet" href="../../plugins/element-ui/index.css" />
+    <link rel="stylesheet" href="../../styles/common.css" />
+    <link rel="stylesheet" href="../../styles/page.css" />
+</head>
+<body>
+<template>
+    <div class="addBrand-container" id="food-add-app">
+    <div>
+        <!-- upload 组件，允许上传多个文件 -->
+        <el-upload
+                class="avatar-uploader"
+                action="/common1/upload" <!-- 上传图片的接口地址 -->
+        :show-file-list="true"
+        :on-success="handleAvatarSuccess"
+        :before-upload="beforeUpload"
+        :multiple="true"
+        ref="upload">
+        <!-- 使用v-for指令循环渲染上传成功的图片 -->
+        <div v-for="(url, index) in fileList" :key="index" class="image-container">
+            <img :src="url" class="avatar">
+            <!-- 按钮用于发送请求并在浏览器中展示图片 -->
+            <el-button @click="showImage(url)">Show Image</el-button>
+        </div>
+        <!-- 添加按钮，点击后触发上传功能 -->
+        <i v-if="fileList.length === 0" class="el-icon-plus avatar-uploader-icon"></i>
+        </el-upload>
+    </div>
+    </div>
+</template>
+
+<script>
+    export default {
+        data() {
+            return {
+                fileList: [] // 存储上传成功的图片地址数组
+            };
+        },
+        methods: {
+            handleAvatarSuccess(response, file, fileList) {
+                // 每次上传成功后将图片地址添加到数组中
+                this.fileList.push(response.data.url);
+            },
+            beforeUpload(file) {
+                // 可以在此处添加上传图片的前置处理，比如文件大小、文件类型等检查
+                return true; // 返回 true 表示允许上传
+            },
+            showImage(url) {
+                // 可以在此处发送请求并在浏览器中展示图片
+                window.open(url, '_blank'); // 在新标签页中打开图片
+            }
+        }
+    };
+</script>
+
+<style>
+    /* 样式可以根据需求自行调整 */
+    .avatar {
+        width: 100px;
+        height: 100px;
+        margin-right: 10px;
+    }
+    .image-container {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+</style>
+<!-- 开发环境版本，包含了有帮助的命令行警告 -->
+<script src="../../plugins/vue/vue.js"></script>
+<!-- 引入组件库 -->
+<script src="../../plugins/element-ui/index.js"></script>
+<!-- 引入axios -->
+<script src="../../plugins/axios/axios.min.js"></script>
+<script src="../../js/index.js"></script>
+
+</body>
+</html>

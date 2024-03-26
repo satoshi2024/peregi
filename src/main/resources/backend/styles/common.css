@@ -103,8 +103,8 @@ input[type="number"] {
   background: #fcfcfc;
 }
 .avatar-uploader .el-icon-plus:before {
-  content: "上传图片" !important;
-  font-size: 12px;
+  content: "+" !important;
+  font-size: 50px;
   color: #000;
 }
 

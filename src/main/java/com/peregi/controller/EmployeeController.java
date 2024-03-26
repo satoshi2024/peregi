@@ -118,7 +118,11 @@ public class EmployeeController {
         //条件コンストラクタ
         LambdaQueryWrapper<Employee> queryWrapper = new LambdaQueryWrapper();
         //フィルタの追加
-        queryWrapper.like(StringUtils.isNotEmpty(name),Employee::getName,name);
+        //可以查账号，姓名，电话
+        queryWrapper.like(StringUtils.isNotEmpty(name),Employee::getName,name).or().
+        like(StringUtils.isNotEmpty(name),Employee::getUsername,name).or().
+                like(StringUtils.isNotEmpty(name),Employee::getPhone,name);
+        //queryWrapper.like(StringUtils.isNotEmpty(name),Employee::getName,name);
         //並べ替え基準の追加
         queryWrapper.orderByDesc(Employee::getUpdateTime);
 
