@@ -1,65 +1,38 @@
-create or replace procedure lob_replace( p_lob in out clob,
+DECLARE
+  v_src      CLOB;
+  v_dst      CLOB;
+  v_chunk    VARCHAR2(4000);
+  v_pos      INTEGER := 1;
+  v_amount   INTEGER := 4000;
+  v_len      INTEGER;
+BEGIN
+  -- 获取原始 CLOB
+  SELECT clob_col INTO v_src FROM your_table WHERE id = 1 FOR UPDATE;
 
-p_what in varchar2,
+  -- 创建一个空的 CLOB 用于接收替换后的内容
+  DBMS_LOB.CREATETEMPORARY(v_dst, TRUE);
 
-p_with in varchar2 )
+  -- 获取长度
+  v_len := DBMS_LOB.getlength(v_src);
 
-as
+  WHILE v_pos <= v_len LOOP
+    -- 读取一段
+    DBMS_LOB.READ(v_src, v_amount, v_pos, v_chunk);
 
-n number;
+    -- 替换中文逗号
+    v_chunk := REPLACE(v_chunk, '，', '');
 
-len number;
+    -- 写入到新 CLOB
+    DBMS_LOB.WRITEAPPEND(v_dst, LENGTH(v_chunk), v_chunk);
 
-begin
+    -- 下一段
+    v_pos := v_pos + v_amount;
+  END LOOP;
 
-n := dbms_lob.instr( p_lob, p_what );
+  -- 清空旧内容，写入新内容
+  DBMS_LOB.TRIM(v_src, 0);
+  DBMS_LOB.WRITEAPPEND(v_src, DBMS_LOB.GETLENGTH(v_dst), v_dst);
 
-while ( nvl(n,0) > 0 ) loop
-
-len := dbms_lob.getlength(p_lob);
-
-if (n+length(p_with)-1 > len)
-
-then
-
-dbms_lob.writeappend( p_lob, n+length(p_with)-1 - len, p_with );
-
-end if;
-
-
-if (len-n-length(p_what)+1 > 0)
-
-then
-
-dbms_lob.copy( p_lob,
-
-p_lob,
-
-len-n-length(p_what)+1,
-
-n+length(p_with),
-
-n+length(p_what) );
-
-end if;
-
-
-dbms_lob.write( p_lob, length(p_with), n, p_with );
-
-
-if ( length(p_what) > length(p_with) )
-
-then
-
-dbms_lob.trim( p_lob,
-
-dbms_lob.getlength(p_lob)-(length(p_what)-length(p_with)) );
-
-end if;
-
-n := dbms_lob.instr( p_lob, p_what );
-
-end loop;
-
-end;
-
+  -- 释放临时 CLOB
+  DBMS_LOB.FREETEMPORARY(v_dst);
+END;
