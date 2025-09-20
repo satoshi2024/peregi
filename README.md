@@ -1,3 +1,7 @@
-INSERT INTO your_table (id, name)
-SELECT rownum, t.name
-  FROM your_table t, (SELECT 1 FROM dual CONNECT BY LEVEL <= 10000);
+SELECT t.*
+FROM 表名 t
+WHERE t.ROWID NOT IN (
+    SELECT MIN(ROWID)
+    FROM 表名
+    GROUP BY col1
+);
