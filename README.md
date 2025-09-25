@@ -1,11 +1,14 @@
-CURSOR r IS
+CURSOR CELTAXSHINKOKU (P_NMIN NUMBER, P_NMAX NUMBER) IS
   SELECT *
-  FROM abc t
- WHERE t.kojin_no = i_nkoujinnno
-   AND t.nenbun   = i_nnendo
-   AND t.renban = (
-       SELECT MAX(t2.renban)
-       FROM abc t2
-       WHERE t2.kojin_no = t.kojin_no
-         AND t2.nenbun   = t.nenbun
-   );
+  FROM (
+    SELECT t.*,
+           ROW_NUMBER() OVER (
+             PARTITION BY t.KOJIN_NO
+             ORDER BY t.RENBAN DESC       -- 取该KOJIN_NO的最大连番
+           ) AS rn
+    FROM ZABWSHINKOKU_ELTAXCSV t
+    WHERE t.NENBUN = GJOKEN.INENDO
+  )
+  WHERE rn = 1
+    AND RENBAN BETWEEN P_NMIN AND P_NMAX
+  ORDER BY RENBAN;
