@@ -1,14 +1,17 @@
-CURSOR CELTAXSHINKOKU (P_NMIN NUMBER, P_NMAX NUMBER) IS
-  SELECT t.*
-  FROM CSV t
-  JOIN (
-        SELECT KOJIN_NO, MAX(RENBAN) AS RENBAN
-        FROM CSV
-        WHERE NENBUN = GJOKEN.INENDO
-        GROUP BY KOJIN_NO
-       ) m
-    ON m.KOJIN_NO = t.KOJIN_NO
-   AND m.RENBAN  = t.RENBAN
-  WHERE t.NENBUN = GJOKEN.INENDO
-    AND t.RENBAN BETWEEN P_NMIN AND P_NMAX
-  ORDER BY t.RENBAN;
+BEGIN
+    DELETE FROM your_table t
+     WHERE ROWID IN (
+        SELECT rid
+          FROM (
+                SELECT ROWID rid,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY col1, col2, col3   -- 判断重复的字段
+                           ORDER BY renban DESC            -- 按连番倒序
+                       ) rn
+                  FROM your_table
+               )
+         WHERE rn > 1
+     );
+    COMMIT;
+END;
+/
