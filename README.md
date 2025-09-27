@@ -1,17 +1,2 @@
-BEGIN
-    DELETE FROM your_table t
-     WHERE ROWID IN (
-        SELECT rid
-          FROM (
-                SELECT ROWID rid,
-                       ROW_NUMBER() OVER (
-                           PARTITION BY col1, col2, col3   -- 判断重复的字段
-                           ORDER BY renban DESC            -- 按连番倒序
-                       ) rn
-                  FROM your_table
-               )
-         WHERE rn > 1
-     );
-    COMMIT;
-END;
-/
+調査の結果、テスト環境では当該事象は再現いたしませんでした。
+お手数ですが、accta{acc,123} および accta{acc,456} が正しく設定されているかご確認いただけますでしょうか。
