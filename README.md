@@ -6,3 +6,8 @@ JOIN v$sql sq ON s.sql_id = sq.sql_id
 WHERE s.username = 'ユーザー名'
    OR s.program LIKE '%你的程序%'
    OR sq.sql_text LIKE '%特定のSQL%';
+-- セッションをKILL
+ALTER SYSTEM KILL SESSION 'SID,SERIAL#' IMMEDIATE;
+
+-- 例
+ALTER SYSTEM KILL SESSION '123,4567' IMMEDIATE;
