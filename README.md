@@ -3,38 +3,42 @@ import os
 import re
 
 def modify_sql_content(content, fields_to_add, comment_template):
-    # --- 步骤 1: 动态抓取表名 ---
-    table_match = re.search(r"create\s+table\s+(\w+)", content, flags=re.IGNORECASE)
+    # --- 1. 自动提取真实的表名 ---
+    # 匹配 create table 后面跟着的名字（支持带引号或不带引号）
+    table_match = re.search(r"create\s+table\s+([\w\d\"]+)", content, flags=re.IGNORECASE)
     if table_match:
-        real_table_name = table_match.group(1)
+        real_table_name = table_match.group(1).replace('"', '') # 移除可能的引号
         print(f" -> 识别到表名: {real_table_name}")
     else:
         real_table_name = "UNKNOWN_TABLE"
-        print(" -> [错误] 未能在文件中识别到 CREATE TABLE 表名")
+        print(" -> [警告] 未能提取到表名")
 
-    # --- 步骤 2: 将文言模板中的占位符替换为当前文件的真实表名 ---
+    # --- 2. 动态生成文言：将模板中的占位符换成真实表名 ---
+    # 脚本会自动把模板里的 ZABWL201R207 换成该文件真实的表名
     current_comment_msg = comment_template.replace("ZABWL201R207", real_table_name)
 
-    # --- 步骤 3: 插入新字段 (CREATE TABLE 括号处) ---
-    pattern_create = r"(create\s+table\s+\w+\s*\()"
+    # --- 3. 逻辑 A: 在 CREATE TABLE 之后插入新字段 ---
+    pattern_create = r"(create\s+table\s+[\w\d\"]+\s*\()"
     replacement_create = r"\1" + fields_to_add + ", "
     content = re.sub(pattern_create, replacement_create, content, flags=re.IGNORECASE)
 
-    # --- 步骤 4: 关键词定位法插入 COMMENT ---
+    # --- 4. 逻辑 B: 关键词定位法插入新文言 ---
     keyword = "COMMENT ON TABLE"
     start_pos = content.upper().find(keyword)
     
     if start_pos != -1:
+        # 从关键词位置开始找第一个斜杠 /
         slash_pos = content.find("/", start_pos)
         if slash_pos != -1:
             before_slash = content[:slash_pos + 1]
             after_slash = content[slash_pos + 1:]
+            # 插入动态生成的注释内容
             content = before_slash + "\n" + current_comment_msg + after_slash
-            print(f" -> [成功] 已应用动态表名到 COMMENT")
+            print(f" -> [成功] 已应用动态表名 {real_table_name} 到注释区")
         else:
-            print(" -> [失败] 找到了 COMMENT 关键词但没找到后面的斜杠 /")
+            print(" -> [失败] 找到 COMMENT 但没找到随后的 /")
     else:
-        print(" -> [跳过] 该文件中未发现 COMMENT ON TABLE 语句")
+        print(" -> [跳过] 此文件无 COMMENT ON TABLE 语句")
     
     return content
 
@@ -42,50 +46,45 @@ def batch_transform(input_folder, output_folder, fields, comment_temp):
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
-    # 定义尝试读取的编码列表
-    encodings_to_try = ['shift-jis', 'utf-8-sig', 'utf-8', 'cp932']
-
     for filename in os.listdir(input_folder):
         if filename.lower().endswith((".sql", ".txt")):
             input_path = os.path.join(input_folder, filename)
             output_path = os.path.join(output_folder, filename)
             
             content = None
-            # 自动尝试不同编码读取文件
-            for enc in encodings_to_try:
+            # --- 自动处理编码报错：先试 shift-jis，再试 utf-8 ---
+            for enc in ['shift-jis', 'utf-8-sig', 'utf-8']:
                 try:
                     with open(input_path, 'r', encoding=enc) as f:
                         content = f.read()
-                    print(f"✅ 成功使用 {enc} 读取: {filename}")
-                    break 
-                except (UnicodeDecodeError, UnicodeError):
+                    break
+                except UnicodeDecodeError:
                     continue
             
             if content is None:
-                print(f"❌ 无法读取文件 {filename}，尝试的所有编码都失败了。")
+                print(f"❌ 编码错误：无法读取文件 {filename}")
                 continue
 
             try:
-                # 执行修改逻辑
                 new_content = modify_sql_content(content, fields, comment_temp)
 
-                # 统一以 shift-jis 格式写出（符合日文系统要求）
+                # 以 JIS (Shift-JIS) 格式保存输出文件
                 with open(output_path, 'w', encoding='shift-jis', errors='replace') as f:
                     f.write(new_content)
-                
+                print(f"✅ 处理完成: {filename}")
             except Exception as e:
-                print(f"❌ 处理内容时出错 {filename}: {e}")
+                print(f"❌ 处理出错 {filename}: {e}")
 
 # --- 配置区域 ---
 input_dir = './raw_sql' 
 output_dir = './processed_sql'
 
-# 字段列表
+# 1. 要插入的列
 fields_to_insert = '''KYOTSU_TSUSU_RENBAN                NVARCHAR2(1000),
     KYOTSU_PAGE_RENBAN                NVARCHAR2(1000),
     KYOTSU_DOFU_RENBAN                NVARCHAR2(1000)'''
 
-# 文言模板 (脚本会自动替换 ZABWL201R207)
+# 2. 注释模板 (ZABWL201R207 会被自动替换)
 comment_template = '''COMMENT ON COLUMN ZABWL201R207.KYOTSU_TSUSU_RENBAN IS '業務共通_通数連番'
 /
 COMMENT ON COLUMN ZABWL201R207.KYOTSU_PAGE_RENBAN IS '業務共通_頁連番'
@@ -96,6 +95,5 @@ COMMENT ON COLUMN ZABWL201R207.KYOTSU_DOFU_RENBAN IS '業務共通_同封内連�
 if __name__ == "__main__":
     if os.path.exists(input_dir):
         batch_transform(input_dir, output_dir, fields_to_insert, comment_template)
-        print("\n--- 全部处理程序运行结束 ---")
     else:
-        print(f"找不到文件夹: {input_dir}")
+        print(f"文件夹不存在: {input_dir}")
