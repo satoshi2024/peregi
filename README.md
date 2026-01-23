@@ -3,28 +3,31 @@ import os
 import re
 
 def modify_sql_content(content, fields_to_add, comment_text_to_add):
-    # --- 逻辑 1: CREATE TABLE 插入 (已生效) ---
+    # --- 逻辑 1: 在 CREATE TABLE 之后插入字段 (正则法) ---
     pattern_create = r"(create\s+table\s+\w+\s*\()"
     replacement_create = r"\1" + fields_to_add + ", "
     content = re.sub(pattern_create, replacement_create, content, flags=re.IGNORECASE)
 
-    # --- 逻辑 2: 在 COMMENT ON TABLE ... / 下方添加 ---
-    # 这个正则会匹配: 
-    # 1. COMMENT ON TABLE 表名 IS '';
-    # 2. 接着匹配中间的换行和空格 (\s+)
-    # 3. 最后匹配斜杠 (/)
-    pattern_comment = r"(COMMENT\s+ON\s+TABLE\s+\w+\s+IS\s+'';\s*\n\s*/)"
+    # --- 逻辑 2: 关键词定位法插入 COMMENT ---
+    # 1. 找到 "COMMENT ON TABLE" 的起始位置
+    keyword = "COMMENT ON TABLE"
+    start_pos = content.upper().find(keyword)
     
-    # 检查是否能匹配到
-    match = re.search(pattern_comment, content, flags=re.IGNORECASE)
-    
-    if match:
-        # 在匹配到的内容（包含斜杠）后面加上换行和新文言
-        content = re.sub(pattern_comment, r"\1\n" + comment_text_to_add, content, count=1, flags=re.IGNORECASE)
-        print(" -> [OK] 成功匹配到 COMMENT 并在其下方插入了内容")
+    if start_pos != -1:
+        # 2. 从这个位置开始往后找第一个斜杠 "/"
+        slash_pos = content.find("/", start_pos)
+        if slash_pos != -1:
+            # 3. 在斜杠后面插入新内容 (slash_pos + 1 是斜杠后的位置)
+            # 我们先切开字符串，中间塞入新内容，再拼起来
+            before_slash = content[:slash_pos + 1]
+            after_slash = content[slash_pos + 1:]
+            
+            content = before_slash + "\n" + comment_text_to_add + after_slash
+            print(" -> [成功] 已通过关键词定位并在第一个 / 后插入内容")
+        else:
+            print(" -> [失败] 找到了 COMMENT ON TABLE 但没找到后面的 /")
     else:
-        # 如果还是不行，打印出文件前 500 个字符帮你分析格式
-        print(" -> [ERR] 匹配失败，请检查脚本中的引号或换行符是否与文件一致")
+        print(" -> [失败] 未能找到关键词 'COMMENT ON TABLE'")
     
     return content
 
@@ -37,30 +40,31 @@ def batch_transform(input_folder, output_folder, fields, comment_msg):
             input_path = os.path.join(input_folder, filename)
             output_path = os.path.join(output_folder, filename)
             try:
-                # 原始文件是 UTF-8
+                # 按照要求使用 UTF-8 读取
                 with open(input_path, 'r', encoding='utf-8') as f:
                     content = f.read()
 
+                # 执行修改逻辑
                 new_content = modify_sql_content(content, fields, comment_msg)
 
-                # 输出为 Shift-JIS
+                # 按照要求使用 Shift-JIS 写入
                 with open(output_path, 'w', encoding='shift-jis', errors='replace') as f:
                     f.write(new_content)
                 
-                print(f"✅ 处理文件: {filename}")
+                print(f"✅ 处理完成: {filename}")
             except Exception as e:
-                print(f"❌ 错误 {filename}: {e}")
+                print(f"❌ 运行错误 {filename}: {e}")
 
 # --- 配置区域 ---
 input_dir = './raw_sql' 
 output_dir = './processed_sql'
 
-# 1. 插入字段
+# 字段内容
 fields_to_insert = '''KYOTSU_TSUSU_RENBAN                NVARCHAR2(1000),
     KYOTSU_PAGE_RENBAN                NVARCHAR2(1000),
     KYOTSU_DOFU_RENBAN                NVARCHAR2(1000)'''
 
-# 2. 插入文言 (确保使用三引号，且末尾也有斜杠)
+# 插入的文言内容 (请确保格式正确)
 new_comment_msg = '''COMMENT ON COLUMN ZABWL201R207.KYOTSU_TSUSU_RENBAN IS '業務共通_通数連番'
 /
 COMMENT ON COLUMN ZABWL201R207.KYOTSU_PAGE_RENBAN IS '業務共通_頁連番'
