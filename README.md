@@ -3,26 +3,28 @@ import os
 import re
 
 def modify_sql_content(content, fields_to_add, comment_text_to_add):
-    # --- 逻辑 1: 在 CREATE TABLE 之后插入字段 ---
-    # 增加 \s* 以处理可能的空格
+    # --- 逻辑 1: CREATE TABLE 插入 (已生效) ---
     pattern_create = r"(create\s+table\s+\w+\s*\()"
     replacement_create = r"\1" + fields_to_add + ", "
     content = re.sub(pattern_create, replacement_create, content, flags=re.IGNORECASE)
 
-    # --- 逻辑 2: 在第一个 COMMENT ON TABLE ... / 下方添加文言 ---
-    # 优化后的正则：匹配 COMMENT...IS ''; 然后跨越任何空格/换行匹配到 /
-    # [\s\S]*? 表示匹配包括换行符在内的任意字符，直到遇到第一个 /
-    pattern_comment = r"(COMMENT\s+ON\s+TABLE\s+\w+\s+IS\s+'';\s*[\r\n]+\s*/)"
+    # --- 逻辑 2: 在 COMMENT ON TABLE ... / 下方添加 ---
+    # 这个正则会匹配: 
+    # 1. COMMENT ON TABLE 表名 IS '';
+    # 2. 接着匹配中间的换行和空格 (\s+)
+    # 3. 最后匹配斜杠 (/)
+    pattern_comment = r"(COMMENT\s+ON\s+TABLE\s+\w+\s+IS\s+'';\s*\n\s*/)"
     
-    # 替换逻辑：保留原匹配项(\1)，换行，然后添加新文言
-    replacement_comment = r"\1\n" + comment_text_to_add
+    # 检查是否能匹配到
+    match = re.search(pattern_comment, content, flags=re.IGNORECASE)
     
-    # 使用 count=1 确保只修改第一个匹配项
-    if re.search(pattern_comment, content, flags=re.IGNORECASE):
-        content = re.sub(pattern_comment, replacement_comment, content, count=1, flags=re.IGNORECASE)
-        print(" -> 已成功定位并修改 COMMENT 部分")
+    if match:
+        # 在匹配到的内容（包含斜杠）后面加上换行和新文言
+        content = re.sub(pattern_comment, r"\1\n" + comment_text_to_add, content, count=1, flags=re.IGNORECASE)
+        print(" -> [OK] 成功匹配到 COMMENT 并在其下方插入了内容")
     else:
-        print(" -> 未找到匹配的 COMMENT 语句，请检查 SQL 格式")
+        # 如果还是不行，打印出文件前 500 个字符帮你分析格式
+        print(" -> [ERR] 匹配失败，请检查脚本中的引号或换行符是否与文件一致")
     
     return content
 
@@ -35,39 +37,37 @@ def batch_transform(input_folder, output_folder, fields, comment_msg):
             input_path = os.path.join(input_folder, filename)
             output_path = os.path.join(output_folder, filename)
             try:
-                # 按照你的要求：UTF-8 读取
+                # 原始文件是 UTF-8
                 with open(input_path, 'r', encoding='utf-8') as f:
                     content = f.read()
 
-                # 执行修改
                 new_content = modify_sql_content(content, fields, comment_msg)
 
-                # 按照你的要求：Shift-JIS 写入
+                # 输出为 Shift-JIS
                 with open(output_path, 'w', encoding='shift-jis', errors='replace') as f:
                     f.write(new_content)
                 
-                print(f"✅ 处理成功: {filename}")
+                print(f"✅ 处理文件: {filename}")
             except Exception as e:
-                print(f"❌ 处理失败 {filename}: {e}")
+                print(f"❌ 错误 {filename}: {e}")
 
 # --- 配置区域 ---
 input_dir = './raw_sql' 
 output_dir = './processed_sql'
 
-# 请确保使用三引号包裹
+# 1. 插入字段
 fields_to_insert = '''KYOTSU_TSUSU_RENBAN                NVARCHAR2(1000),
     KYOTSU_PAGE_RENBAN                NVARCHAR2(1000),
     KYOTSU_DOFU_RENBAN                NVARCHAR2(1000)'''
 
-# 请确保使用三引号包裹你截图中的长篇 COMMENT 内容
+# 2. 插入文言 (确保使用三引号，且末尾也有斜杠)
 new_comment_msg = '''COMMENT ON COLUMN ZABWL201R207.KYOTSU_TSUSU_RENBAN IS '業務共通_通数連番'
 /
 COMMENT ON COLUMN ZABWL201R207.KYOTSU_PAGE_RENBAN IS '業務共通_頁連番'
-/''' # 此处根据你的截图继续粘贴完整
+/'''
 
 if __name__ == "__main__":
     if os.path.exists(input_dir):
         batch_transform(input_dir, output_dir, fields_to_insert, new_comment_msg)
-        print("\n全部处理完毕！")
     else:
-        print(f"找不到目录: {input_dir}")
+        print(f"找不到文件夹: {input_dir}")
