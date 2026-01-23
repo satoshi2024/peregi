@@ -1,100 +1,57 @@
 # -*- coding: utf-8 -*-
 import os
-import re
 
-def modify_sql_content(content, fields_to_add, comment_template):
-    # 1. 自动提取真实的表名 (Extract real table name)
-    # 匹配 create table 后的第一个单词
-    table_match = re.search(r"create\s+table\s+([\w\d\"]+)", content, flags=re.IGNORECASE)
-    if table_match:
-        real_table_name = table_match.group(1).replace('"', '')
-        print(f" -> Table detected: {real_table_name}")
-    else:
-        real_table_name = "UNKNOWN_TABLE"
-        print(" -> Warning: Table name not found")
-
-    # 2. 动态替换模板中的表名 (Dynamic replacement)
-    # 将模板中的 ZABWL201R207 替换为当前文件真实的表名
-    current_comment_msg = comment_template.replace("ZABWL201R207", real_table_name)
-
-    # 3. 逻辑 A: 在 CREATE TABLE 之后插入新字段
-    pattern_create = r"(create\s+table\s+[\w\d\"]+\s*\()"
-    replacement_create = r"\1" + fields_to_add + ", "
-    content = re.sub(pattern_create, replacement_create, content, flags=re.IGNORECASE)
-
-    # 4. 逻辑 B: 关键词定位法在第一个 / 后插入内容
-    keyword = "COMMENT ON TABLE"
-    start_pos = content.upper().find(keyword)
-    
-    if start_pos != -1:
-        slash_pos = content.find("/", start_pos)
-        if slash_pos != -1:
-            before_slash = content[:slash_pos + 1]
-            after_slash = content[slash_pos + 1:]
-            # 插入动态生成的文言
-            content = before_slash + "\n" + current_comment_msg + after_slash
-            print(f" -> Success: Applied dynamic comments for {real_table_name}")
-        else:
-            print(" -> Error: Slash '/' not found after COMMENT keyword")
-    else:
-        print(" -> Skip: No COMMENT ON TABLE found")
-    
-    return content
-
-def batch_transform(input_folder, output_folder, fields, comment_temp):
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
-
-    # 自动尝试多种编码读取原始 SQL (Try multiple encodings)
+def merge_sql_files(input_folder, output_file):
+    # 自动尝试的编码列表
     encodings_to_try = ['shift-jis', 'utf-8-sig', 'utf-8', 'cp932']
+    
+    # 获取文件夹内所有符合条件的文件
+    files = [f for f in os.listdir(input_folder) if f.lower().endswith(('.sql', '.txt'))]
+    # 按文件名排序，确保整合顺序有规律
+    files.sort()
 
-    for filename in os.listdir(input_folder):
-        if filename.lower().endswith((".sql", ".txt")):
-            input_path = os.path.join(input_folder, filename)
-            output_path = os.path.join(output_folder, filename)
-            
+    print(f"找到 {len(files)} 个文件，准备开始整合...")
+
+    with open(output_file, 'w', encoding='utf-8') as outfile:
+        for filename in files:
+            file_path = os.path.join(input_folder, filename)
             content = None
+            
+            # 尝试不同编码读取
             for enc in encodings_to_try:
                 try:
-                    with open(input_path, 'r', encoding=enc) as f:
-                        content = f.read()
+                    with open(file_path, 'r', encoding=enc) as infile:
+                        content = infile.read()
                     break
-                except:
+                except (UnicodeDecodeError, UnicodeError):
                     continue
             
-            if content is None:
-                print(f"Read Error: {filename}")
-                continue
-
-            try:
-                new_content = modify_sql_content(content, fields, comment_temp)
-                # 以 Shift-JIS 保存结果 (Save as Shift-JIS)
-                with open(output_path, 'w', encoding='shift-jis', errors='replace') as f:
-                    f.write(new_content)
-                print(f"Done: {filename}")
-            except Exception as e:
-                print(f"Process Error {filename}: {e}")
+            if content is not None:
+                # 在每个文件内容前加入注释，方便区分来源
+                outfile.write(f"\n\n-- ==========================================\n")
+                outfile.write(f"-- SOURCE FILE: {filename}\n")
+                outfile.write(f"-- ==========================================\n\n")
+                
+                # 写入内容
+                outfile.write(content)
+                # 确保每个文件结束后都有换行，防止下一笔内容连在一起
+                if not content.endswith('\n'):
+                    outfile.write('\n')
+                
+                print(f"✅ 已整合: {filename}")
+            else:
+                print(f"❌ 无法读取文件（编码错误）: {filename}")
 
 # --- 配置区域 ---
+# 输入文件夹：放你那些分散的 SQL 文件
 input_dir = './raw_sql' 
-output_dir = './processed_sql'
-
-# 插入的字段列表
-fields_to_insert = '''KYOTSU_TSUSU_RENBAN                NVARCHAR2(1000),
-    KYOTSU_PAGE_RENBAN                NVARCHAR2(1000),
-    KYOTSU_DOFU_RENBAN                NVARCHAR2(1000)'''
-
-# 文言模板 (脚本会自动将 ZABWL201R207 替换为真实表名)
-comment_template = '''COMMENT ON COLUMN ZABWL201R207.KYOTSU_TSUSU_RENBAN IS '業務共通_通数連番'
-/
-COMMENT ON COLUMN ZABWL201R207.KYOTSU_PAGE_RENBAN IS '業務共通_頁連番'
-/
-COMMENT ON COLUMN ZABWL201R207.KYOTSU_DOFU_RENBAN IS '業務共通_同封内連番'
-/'''
+# 输出文件：整合后的文件名
+output_filename = 'all_merged_tables.sql'
 
 if __name__ == "__main__":
     if os.path.exists(input_dir):
-        batch_transform(input_dir, output_dir, fields_to_insert, comment_template)
-        print("\nFinished!")
+        merge_sql_files(input_dir, output_filename)
+        print(f"\n--- 整合完成！ ---")
+        print(f"最终结果已保存至: {os.path.abspath(output_filename)}")
     else:
-        print(f"Directory missing: {input_dir}")
+        print(f"错误：找不到文件夹 {input_dir}")
