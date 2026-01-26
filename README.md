@@ -1,9 +1,10 @@
 import os
 from openpyxl import load_workbook
 from openpyxl.styles import Font
+from openpyxl.worksheet.views import Selection
 from copy import copy
 
-def batch_update_with_final_logic(ref_path, folder_path):
+def batch_update_with_cursor_fix(ref_path, folder_path):
     # 1. 提取参考数据及完整样式 (ref.xlsx A7:A26)
     try:
         ref_wb = load_workbook(ref_path, data_only=True)
@@ -61,7 +62,6 @@ def batch_update_with_final_logic(ref_path, folder_path):
             # 4. A 列动态重排序逻辑
             current_no = 1
             for r in range(insert_pos, ws.max_row + 1):
-                # 检查 B 列 (column=2)
                 b_cell_value = ws.cell(row=r, column=2).value 
                 a_cell = ws.cell(row=r, column=1)
                 
@@ -69,16 +69,21 @@ def batch_update_with_final_logic(ref_path, folder_path):
                     a_cell.value = current_no
                     current_no += 1
                 else:
-                    # B 列为空则停止排序
                     a_cell.value = None
                     break
             
-            # 5. 在 A1 单元格写入内容 (例如：更新完成)
-            # 你可以把 "Updated" 改成任何你想写在 A1 的文字
+            # 5. 在 A1 单元格写入内容
             ws["A1"] = "Updated" 
             
+            # --- 修正光标位置到 A1 ---
+            # 重置工作表视图，确保保存后打开时光标在 A1
+            ws.views.sheetView[0].selection[0].activeCell = 'A1'
+            ws.views.sheetView[0].selection[0].sqref = 'A1'
+            # 确保视图滚动到最上方
+            ws.views.sheetView[0].topLeftCell = 'A1'
+            
             wb.save(file_path)
-            print(" [成功并已更新A1]")
+            print(" [成功: 光标已归位 A1]")
 
         except Exception as e:
             print(f" [失败: {e}]")
@@ -88,4 +93,4 @@ REFERENCE_FILE = "ref.xlsx"
 TARGET_FOLDER = "." 
 
 if __name__ == "__main__":
-    batch_update_with_final_logic(REFERENCE_FILE, TARGET_FOLDER)
+    batch_update_with_cursor_fix(REFERENCE_FILE, TARGET_FOLDER)
