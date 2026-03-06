@@ -1,1 +1,6 @@
-で共通の4帳票はすべて新規作成となるため、データフローに関する資料を設計者に確認（または相談）していただけないでしょうか。
+try {
+    Thread.sleep(1000); 
+} catch (InterruptedException e) {
+    // 当线程在睡眠时被中断，会抛出此异常
+    e.printStackTrace();
+}
