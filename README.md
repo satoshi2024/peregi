@@ -1,6 +1,1 @@
-try {
-    Thread.sleep(1000); 
-} catch (InterruptedException e) {
-    // 当线程在睡眠时被中断，会抛出此异常
-    e.printStackTrace();
-}
+金額データが463億に達し、int 型の限界値を超えました。その結果、Java と MyBatis の両方でオーバーフローが起きています。
