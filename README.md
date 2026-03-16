@@ -1,1 +1,1 @@
-金額データが463億に達し、int 型の限界値を超えました。その結果、Java と MyBatis の両方でオーバーフローが起きています。
+金額関連の Java 変数を Long へ統一し、MyBatis の jdbcType も BIGINT に同期修正し
