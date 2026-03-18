@@ -1,5 +1,5 @@
 WITH BaseData AS (
-    -- 1. 这是你原本的查询逻辑，先加上行号 rn
+    -- 1. 你的原始业务逻辑
     SELECT 
         G.KOJIN_NO,
         G.NENDO,
@@ -8,7 +8,8 @@ WITH BaseData AS (
         KKAPK0020.FNENDO(SUBSTR(G.SEINENGAPI, 1, 4), 0)
             || SUBSTR(G.SEINENGAPI, 5, 2)
             || SUBSTR(G.SEINENGAPI, 7, 2) AS SEINENGAPI_WA,
-        ROW_NUMBER() OVER (ORDER BY G.KOJIN_NO) AS rn -- 这里根据个人编号排序
+        -- 生成原始行号
+        ROW_NUMBER() OVER (ORDER BY G.KOJIN_NO) AS rn 
     FROM ZABTGANTAN G, GABTATENAKIHON A
     WHERE G.KOJIN_NO = A.KOJIN_NO
       AND G.NENDO = 2026
@@ -18,29 +19,34 @@ WITH BaseData AS (
       AND LENGTH(G.SHIMEI_KANA) <= 20
       AND G.KOJIN_NO NOT IN (SELECT KOJIN_NO FROM ZABTKAZEI WHERE NENDOBUN = 2026)
 ),
-ExpandedData AS (
-    -- 2. 原始数据：计算排序键 (每10条占位12个)
-    -- 第1-10条占据 sort_key 1-10
+MaxRows AS (
+    -- 计算总组数，用于生成对应的空行
+    SELECT COUNT(*) as total_cnt, CEIL(COUNT(*)/10) as total_groups FROM BaseData
+),
+GenerateKeys AS (
+    -- 2. 原始数据：计算它在“12行一个周期”里的位置 (1-10)
     SELECT 
         KOJIN_NO, NENDO, KANA, SEINENGAPI, SEINENGAPI_WA,
         ((rn - 1) / 10) * 12 + MOD(rn - 1, 10) + 1 AS sort_key
     FROM BaseData
-
+    
     UNION ALL
-
-    -- 3. 插入空行：每组补上第 11 和 12 个位置
-    -- 这里的循环次数取决于你的数据量。假设数据不超过 10000 行
+    
+    -- 3. 构造空行：每个周期里的第 11 和 12 位
     SELECT 
-        NULL, NULL, NULL, NULL, NULL, -- 字段数必须与上面一致
-        (v.n * 12) + offset AS sort_key
+        NULL, NULL, NULL, NULL, NULL,
+        (g.n * 12) + offset AS sort_key
     FROM (
-        -- 生成 0 到 1000 的序列（根据需要调整）
-        SELECT LEVEL - 1 AS n FROM DUAL CONNECT BY LEVEL <= (SELECT (COUNT(*)/10)+1 FROM BaseData)
-    ) v
-    CROSS JOIN (SELECT 11 AS offset UNION ALL SELECT 12 AS offset) o
+        -- 生成足够的组序号 (0, 1, 2...)
+        SELECT LEVEL - 1 AS n FROM DUAL 
+        CONNECT BY LEVEL <= (SELECT total_groups FROM MaxRows)
+    ) g
+    CROSS JOIN (SELECT 11 AS offset FROM DUAL UNION ALL SELECT 12 FROM DUAL) o
 )
--- 4. 最终输出，过滤掉超出实际数据范围的冗余空行
-SELECT KOJIN_NO, NENDO, KANA, SEINENGAPI, SEINENGAPI_WA
-FROM ExpandedData
-WHERE sort_key <= (SELECT (CEIL(MAX(rn)/10)*12) FROM BaseData)
+-- 4. 最终输出并排序
+SELECT 
+    KOJIN_NO, NENDO, KANA, SEINENGAPI, SEINENGAPI_WA
+FROM GenerateKeys
+-- 过滤掉最后多出来的无效空行
+WHERE sort_key <= (SELECT ((total_groups - 1) * 12 + 12) FROM MaxRows)
 ORDER BY sort_key;
