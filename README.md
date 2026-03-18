@@ -1,1 +1,4 @@
-金額関連の Java 変数を Long へ統一し、MyBatis の jdbcType も BIGINT に同期修正し
+SELECT 
+    t.*,
+    ((ROW_NUMBER() OVER (ORDER BY 排序字段) - 1) / 10) AS group_id
+FROM your_table t
