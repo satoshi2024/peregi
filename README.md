@@ -1,18 +1,15 @@
 SELECT 
-    filled_kojin_no
+    -- 第三步：只在序号为 1 的行显示数据，2和3显示为空
+    CASE WHEN b.lvl = 1 THEN TO_CHAR(a.KOJIN_NO) ELSE NULL END AS KOJIN_NO
 FROM (
-    -- 第三步：在每个生成的组内，取非空值（即最大值）填满空白
-    SELECT 
-        MAX(a.KOJIN_NO) OVER (PARTITION BY grp) AS filled_kojin_no
-    FROM (
-        -- 第一步：使用 ROWID 排序，为每一行数据生成组号 (grp)
-        -- COUNT(KOJIN_NO) 遇到非空数据会计数+1，遇到空值计数不变，从而将空值划入上一行数据的组
-        SELECT 
-            a.KOJIN_NO,
-            COUNT(a.KOJIN_NO) OVER (ORDER BY a.ROWID) AS grp
-        FROM gabtatenakihon a
-    ) a
-)
--- 第二步：在填充完毕后，再进行范围筛选
--- 注意：必须在填充后的结果上筛选，否则中间的空白行会被原生的 BETWEEN 过滤掉
-WHERE filled_kojin_no BETWEEN 1210003747 AND 1210005246;
+    -- 第一步：执行你原本的查询
+    SELECT KOJIN_NO, ROWID as rid
+    FROM gabtatenakihon
+    WHERE KOJIN_NO BETWEEN 1210003747 AND 1210005246
+) a
+CROSS JOIN (
+    -- 第二步：构造一个包含 3 行的临时序列 (1, 2, 3)
+    SELECT LEVEL as lvl FROM DUAL CONNECT BY LEVEL <= 3
+) b
+-- 最后按照原始顺序和行号排序，保证空白行紧跟在数据行后面
+ORDER BY a.rid, b.lvl;
