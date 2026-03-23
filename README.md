@@ -1,4 +1,10 @@
-SELECT plan_hash_value 
-FROM stats$sql_summary 
-WHERE hash_value = 4160013739 
-  AND ROWNUM = 1;
+SELECT 
+    id,
+    MAX(original_column) OVER (PARTITION BY grp) as filled_column
+FROM (
+    SELECT 
+        id,
+        original_column,
+        COUNT(original_column) OVER (ORDER BY id) as grp
+    FROM your_table_name
+);
