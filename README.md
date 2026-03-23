@@ -1,15 +1,48 @@
+WITH MyOriginalQuery AS (
+    -- 这里是你图片二中完整的原始逻辑
+    SELECT 
+        G.KOJIN_NO,
+        G.NENDO,
+        UTL_I18N.TRANSLITERATE(G.SHIMEI_KANA, 'kana_hwkatakana') AS KANA,
+        G.SEINENGAPI,
+        KKAPK0020.FNENDO(SUBSTR(G.SEINENGAPI, 1, 4), 0)
+           || SUBSTR(G.SEINENGAPI, 5, 2)
+           || SUBSTR(G.SEINENGAPI, 7, 2) AS SEINENGAPI_WA,
+        -- 为原始数据生成一个连续序号，方便后面定位
+        ROW_NUMBER() OVER (ORDER BY G.KOJIN_NO) AS rn
+    FROM ZABTGANTAN G, GABTATENAKIHON A
+    WHERE G.KOJIN_NO = A.KOJIN_NO
+      AND G.NENDO = 2026
+      AND A.GENZON_KBN = 0
+      AND G.SEINENGAPI > 0
+      AND REGEXP_LIKE(G.SHIMEI_KANA, '^[ア-ケ □]+$')
+      AND LENGTH(G.SHIMEI_KANA) <= 20
+      AND G.KOJIN_NO NOT IN (SELECT KOJIN_NO FROM ZABTKAZEI WHERE NENDOBUN = 2026)
+      AND G.KOJIN_NO NOT IN (SELECT KOJIN_NO FROM ZABTKAZEI_KARI WHERE NENDOBUN = 2026)
+      AND G.KOJIN_NO NOT IN (SELECT KOJIN_NO FROM ZABTKYUHO WHERE NENDOBUN = 2026)
+      AND G.KOJIN_NO NOT IN (SELECT KOJIN_NO FROM ZABTNENKIN WHERE NENDOBUN = 2026)
+      AND G.KOJIN_NO NOT IN (SELECT KOJIN_NO FROM ZABTSHINKOKU WHERE NENDOBUN = 2026)
+)
 SELECT 
-    -- 第三步：只在序号为 1 的行显示数据，2和3显示为空
-    CASE WHEN b.lvl = 1 THEN TO_CHAR(a.KOJIN_NO) ELSE NULL END AS KOJIN_NO
+    KOJIN_NO, NENDO, KANA, SEINENGAPI, SEINENGAPI_WA
 FROM (
-    -- 第一步：执行你原本的查询
-    SELECT KOJIN_NO, ROWID as rid
-    FROM gabtatenakihon
-    WHERE KOJIN_NO BETWEEN 1210003747 AND 1210005246
-) a
-CROSS JOIN (
-    -- 第二步：构造一个包含 3 行的临时序列 (1, 2, 3)
-    SELECT LEVEL as lvl FROM DUAL CONNECT BY LEVEL <= 3
-) b
--- 最后按照原始顺序和行号排序，保证空白行紧跟在数据行后面
-ORDER BY a.rid, b.lvl;
+    -- 1. 原始数据：放在每一组的第 3 位
+    SELECT 
+        KOJIN_NO, NENDO, KANA, SEINENGAPI, SEINENGAPI_WA,
+        (rn * 3) AS sort_key
+    FROM MyOriginalQuery
+
+    UNION ALL
+
+    -- 2. 占位空白行：占用每一组的第 1 位和第 2 位
+    SELECT 
+        NULL, NULL, NULL, NULL, NULL,
+        (m.rn * 3) - offset_num AS sort_key
+    FROM MyOriginalQuery m
+    CROSS JOIN (
+        SELECT 1 AS offset_num FROM DUAL 
+        UNION ALL 
+        SELECT 2 AS offset_num FROM DUAL
+    )
+)
+ORDER BY sort_key;
