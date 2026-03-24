@@ -1,4 +1,13 @@
-SELECT owner, name, type, line, text 
-FROM all_source 
-WHERE UPPER(text) LIKE '%ZABTMPNJOHO%'
-   OR UPPER(text) LIKE '%KSDFKKNZSBNGF%';
+MERGE INTO ZABTKAZEI_KARI t
+USING (
+    SELECT 
+        ROWID as rid,
+        ROW_NUMBER() OVER (PARTITION BY SHITEI_NO ORDER BY ROWID) as new_seq
+    FROM 
+        ZABTKAZEI_KARI
+    WHERE 
+        SHITEI_NO BETWEEN 1210003747 AND 1210005246
+) src
+ON (t.ROWID = src.rid)
+WHEN MATCHED THEN
+    UPDATE SET t.SEIRI_NO = src.new_seq;
