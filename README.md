@@ -2,10 +2,11 @@ SELECT
     s.sid,
     s.serial#,
     s.username,
-    s.module,
-    s.action,
     s.program,
-    s.plsql_entry_object_id,
-    s.plsql_object_id
+    s.status,
+    s.sql_id,
+    q.sql_text
 FROM v$session s
+LEFT JOIN v$sql q 
+    ON s.sql_id = q.sql_id
 WHERE s.status = 'ACTIVE';
