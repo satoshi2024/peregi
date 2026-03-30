@@ -1,79 +1,227 @@
 // 2026/03/30 S.Cyo Del Start 故障No.28対応 (跨页报错修复)
 /*
-function clickOneRadio(objNo)
+async function doAction(operationName)
 {
-    var formObj = document.getElementById("ChohyologForm");
-    //2024/04/24 DIS.Zhangjianting Update start 0.3.020.000:新WizLIFE 2 次開発
-    //formObj.no.value = objNo;
-    var kindOfReport = "kindOfReport" + objNo;
-    var kindOfReport = document.getElementById(kindOfReport).innerHTML;
-    
-    if (formObj.no.value != objNo){
-    // 2025/01/30 S.Raw Del 0.3.020.000:ST故障No.28対応
-    // if (kindOfReport == "納税証明書" || kindOfReport == "営業証明書"){
-        var hakkoMeMo1 = document.getElementById("hakkoMeMo1" + objNo);
-        var hakkoMeMo2 = document.getElementById("hakkoMeMo2" + objNo);
-        hakkoMeMo1.style.display = "none";
-        hakkoMeMo2.style.display = "";
-        if (formObj.no.value != null && formObj.no.value != ""){
-            var hakkoMeMo3 = document.getElementById("hakkoMeMo1" + formObj.no.value);
-            var hakkoMeMo4 = document.getElementById("hakkoMeMo2" + formObj.no.value);
-            // 2026/03/30 S.Cyo Upd Start
-            //hakkoMeMo4.style.display = "none";
-            //hakkoMeMo3.style.display = "";
-            if (hakkoMeMo4 != null){
-                hakkoMeMo4.style.display = "none";
+    var actionUrl = "";
+    var obj = document.getElementById("ChohyologForm");
+    switch (operationName)
+    {
+        case "pre":
+            button_colorout(obj.prePageButton.style);
+            obj.prePageButton.disabled = true;
+            obj.nextPage.value = parseInt(obj.currentPage.value) - 1;
+            actionUrl = "ZBB014S001PageController.do";
+            allBtnDisabled(obj);
+            // 2026/03/30 S.Cyo Add Start
+            obj.no.value = "";
+            // 2026/03/30 S.Cyo Add End
+            obj.action = "${pageContext.request.contextPath}/" + actionUrl;
+            obj.submit();
+            break;
+        case "next":
+            button_colorout(obj.nextPageButton.style);
+            obj.nextPageButton.disabled = true;
+            obj.nextPage.value = parseInt(obj.currentPage.value) + 1;
+            actionUrl = "ZBB014S001PageController.do";
+            allBtnDisabled(obj);
+            // 2026/03/30 S.Cyo Add Start
+            obj.no.value = "";
+            // 2026/03/30 S.Cyo Add End
+            obj.action = "${pageContext.request.contextPath}/" + actionUrl;
+            obj.submit();
+            break;
+        case "pgChg":
+            button_colorout(obj.pgChgButton.style);
+            obj.pgChgButton.disabled = true;
+            obj.nextPage.value = obj.selectNextPage.value;
+            actionUrl = "ZBB014S001PageController.do";
+            allBtnDisabled(obj);
+            // 2026/03/30 S.Cyo Add Start
+            obj.no.value = "";
+            // 2026/03/30 S.Cyo Add End
+            obj.action = "${pageContext.request.contextPath}/" + actionUrl;
+            obj.submit();
+            break;
+        case "query":
+            button_colorout(obj.queryButton.style);
+            obj.queryButton.disabled = true;
+            obj.menuNO.value = -1;
+            obj.message.value = "検索中です。";
+            actionUrl = "GetChohyologList.do";
+            allBtnDisabled(obj);
+            obj.action = "${pageContext.request.contextPath}/" + actionUrl;
+            obj.submit();
+            break;
+//2024/04/24 DIS.Zhangjianting Add start 0.3.020.000:新WizLIFE 2 次開発
+        case "update":
+            button_colorout(obj.shobunk.style);
+            var hakkoMeMo = document.getElementById("hakkoMeMo" + obj.no.value);
+            obj.shobunk.disabled = true;
+            obj.nextPage.value = obj.selectNextPage.value;
+            obj.message.value = "更新中です。";
+            actionUrl = "ZBB014S001UpdateController.do";
+            hakkoMeMo.setAttribute("disabled", "disabled");
+            obj.hakkoMeMo.value = hakkoMeMo.value;
+            allBtnDisabled(obj);
+            obj.action = "${pageContext.request.contextPath}/" + actionUrl;
+            obj.submit();
+            break;
+//2024/04/24 DIS.Zhangjianting Add end
+        case "delete":
+            var flg = await AsyncMessageCommon.asyncShowMessageConfirm("削除してもいいですか？", function(){ return true; }, function(){ return false; });
+            if (flg)
+            {
+                button_colorout(obj.deleBtn.style);
+                obj.deleBtn.disabled = true;
+                obj.nextPage.value = obj.selectNextPage.value;
+                obj.message.value = "削除中です。";
+                actionUrl = "ZBB014S001DeleController.do";
+                allBtnDisabled(obj);
+                obj.action = "${pageContext.request.contextPath}/" + actionUrl;
+                obj.submit();
             }
-            if (hakkoMeMo3 != null){
-                hakkoMeMo3.style.display = "";
-            }
-            // 2026/03/30 S.Cyo Upd End
-        }
-        var shobunk = document.getElementById("shobunk");
-        shobunk.removeAttribute("disabled");
-    // 2025/01/30 S.Raw Del Start 0.3.020.000:ST故障No.28対応
-    // } else {
-    //     var hakkoMeMo1 = document.getElementById("hakkoMeMo1" + formObj.no.value);
-    //     var hakkoMeMo2 = document.getElementById("hakkoMeMo2" + formObj.no.value);
-    //     hakkoMeMo2.style.display = "none";
-    //     hakkoMeMo1.style.display = "";
-    //     var shobunk = document.getElementById("shobunk");
-    //     shobunk.setAttribute("disabled","true");
-    // }
-    // 2025/01/30 S.Raw Del End
-        formObj.no.value = objNo;
+            break;
+        case "hyoji":
+            button_colorout(obj.imejiBtn.style);
+            obj.imejiBtn.disabled = true;
+            actionUrl = "ZBB014S001PrintController.do";
+            allBtnDisabled(obj);
+            obj.action = "${pageContext.request.contextPath}/" + actionUrl;
+            obj.submit();
+            break;
+        default:
     }
 }
 */
 // 2026/03/30 S.Cyo Del End
 
 // 2026/03/30 S.Cyo Add Start 故障No.28対応 (跨页报错修复)
-function clickOneRadio(objNo) {
-    var formObj = document.getElementById("ChohyologForm") || document.getElementsByName("ChohyologForm")[0];
-    if (!formObj) return;
+async function doAction(operationName) {
+    var actionUrl = "";
+    var obj = document.getElementById("ChohyologForm") || document.getElementsByName("ChohyologForm")[0];
+    
+    if (!obj) {
+        console.error("エラー: ChohyologForm が見つかりません。");
+        return;
+    }
 
-    var kindOfReportElem = document.getElementById("kindOfReport" + objNo);
-    var kindOfReport = kindOfReportElem ? kindOfReportElem.innerHTML : "";
+    // 定义安全获取/设置值的方法，防止 null.value 报错
+    function getSafeVal(name) {
+        var el = obj.elements[name] || document.getElementsByName(name)[0] || document.getElementById(name);
+        return el ? el.value : "";
+    }
+    function setSafeVal(name, val) {
+        var el = obj.elements[name] || document.getElementsByName(name)[0] || document.getElementById(name);
+        if (el) el.value = val;
+    }
 
-    if (formObj.no.value != objNo) {
-        var hakkoMeMo1 = document.getElementById("hakkoMeMo1" + objNo);
-        var hakkoMeMo2 = document.getElementById("hakkoMeMo2" + objNo);
-        if (hakkoMeMo1) hakkoMeMo1.style.display = "none";
-        if (hakkoMeMo2) hakkoMeMo2.style.display = "";
+    switch (operationName) {
+        case "pre":
+            if(obj.prePageButton){
+                button_colorout(obj.prePageButton.style);
+                obj.prePageButton.disabled = true;
+            }
+            var curPage = parseInt(getSafeVal("currentPage")) || 1;
+            setSafeVal("nextPage", curPage - 1);
+            setSafeVal("no", ""); // 翻页时清空选中项
+            actionUrl = "ZBB014S001PageController.do";
+            allBtnDisabled(obj);
+            obj.action = "${pageContext.request.contextPath}/" + actionUrl;
+            obj.submit();
+            break;
 
-        if (formObj.no.value != null && formObj.no.value != "") {
-            var hakkoMeMo3 = document.getElementById("hakkoMeMo1" + formObj.no.value);
-            var hakkoMeMo4 = document.getElementById("hakkoMeMo2" + formObj.no.value);
-            if (hakkoMeMo4) hakkoMeMo4.style.display = "none";
-            if (hakkoMeMo3) hakkoMeMo3.style.display = "";
-        }
-        
-        var shobunk = document.getElementById("shobunk") || document.getElementsByName("shobunk")[0];
-        if (shobunk) {
-            shobunk.removeAttribute("disabled");
-            shobunk.disabled = false;
-        }
-        formObj.no.value = objNo;
+        case "next":
+            if(obj.nextPageButton){
+                button_colorout(obj.nextPageButton.style);
+                obj.nextPageButton.disabled = true;
+            }
+            var curPage = parseInt(getSafeVal("currentPage")) || 1;
+            setSafeVal("nextPage", curPage + 1);
+            setSafeVal("no", ""); // 翻页时清空选中项
+            actionUrl = "ZBB014S001PageController.do";
+            allBtnDisabled(obj);
+            obj.action = "${pageContext.request.contextPath}/" + actionUrl;
+            obj.submit();
+            break;
+
+        case "pgChg":
+            if(obj.pgChgButton){
+                button_colorout(obj.pgChgButton.style);
+                obj.pgChgButton.disabled = true;
+            }
+            setSafeVal("nextPage", getSafeVal("selectNextPage"));
+            setSafeVal("no", ""); // 翻页时清空选中项
+            actionUrl = "ZBB014S001PageController.do";
+            allBtnDisabled(obj);
+            obj.action = "${pageContext.request.contextPath}/" + actionUrl;
+            obj.submit();
+            break;
+
+        case "query":
+            if(obj.queryButton){
+                button_colorout(obj.queryButton.style);
+                obj.queryButton.disabled = true;
+            }
+            setSafeVal("menuNO", "-1");
+            setSafeVal("no", "");
+            setSafeVal("message", "検索中です。");
+            actionUrl = "GetChohyologList.do";
+            allBtnDisabled(obj);
+            obj.action = "${pageContext.request.contextPath}/" + actionUrl;
+            obj.submit();
+            break;
+
+        case "update":
+            var currentNo = getSafeVal("no");
+            if (currentNo === "" || currentNo === "-1") {
+                alert("対象データを選択してください。");
+                return;
+            }
+            if(obj.shobunk){
+                button_colorout(obj.shobunk.style);
+                obj.shobunk.disabled = true;
+            }
+            
+            var hakkoMeMo = document.getElementById("hakkoMeMo" + currentNo);
+            if (hakkoMeMo) {
+                 hakkoMeMo.setAttribute("disabled", "disabled");
+                 setSafeVal("hakkoMeMo", hakkoMeMo.value);
+            }
+            
+            setSafeVal("nextPage", getSafeVal("selectNextPage"));
+            setSafeVal("message", "更新中です。");
+            actionUrl = "ZBB014S001UpdateController.do";
+            allBtnDisabled(obj);
+            obj.action = "${pageContext.request.contextPath}/" + actionUrl;
+            obj.submit();
+            break;
+
+        case "delete":
+            var flg = await AsyncMessageCommon.asyncShowMessageConfirm("削除してもいいですか？", function(){ return true; }, function(){ return false; });
+            if (flg) {
+                if(obj.deleBtn){
+                    button_colorout(obj.deleBtn.style);
+                    obj.deleBtn.disabled = true;
+                }
+                setSafeVal("nextPage", getSafeVal("selectNextPage"));
+                setSafeVal("message", "削除中です。");
+                actionUrl = "ZBB014S001DeleController.do";
+                allBtnDisabled(obj);
+                obj.action = "${pageContext.request.contextPath}/" + actionUrl;
+                obj.submit();
+            }
+            break;
+
+        case "hyoji":
+            if(obj.imejiBtn){
+                button_colorout(obj.imejiBtn.style);
+                obj.imejiBtn.disabled = true;
+            }
+            actionUrl = "ZBB014S001PrintController.do";
+            allBtnDisabled(obj);
+            obj.action = "${pageContext.request.contextPath}/" + actionUrl;
+            obj.submit();
+            break;
     }
 }
 // 2026/03/30 S.Cyo Add End
