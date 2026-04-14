@@ -1,2 +1,7 @@
-エビデンス資料を更新いたしました。
-修正前の動作キャプチャはありませんが、代わりに「ソースコードの修正前後比較（差分）」と「修正後の正常動作エビデンス」を補足シートにまとめました。
+
+private String escapeDelimiter(String value) {
+    if (value == null){
+        return null;
+    }
+    return value.replaceAll("[|丨｜]", "★");
+}
