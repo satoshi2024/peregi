@@ -1,7 +1,11 @@
-
-private String escapeDelimiter(String value) {
-    if (value == null){
-        return null;
+    } else {
+        hyojiNayao = info.getCsvData();
     }
-    return value.replaceAll("[|丨｜]", "★");
-}
+    
+    // 追加检测并替换逻辑
+    if (hyojiNayao != null && hyojiNayao.contains("★")) {
+        hyojiNayao = hyojiNayao.replace("★", "｜");
+    }
+    
+    row.setKomokuNayao(hyojiNayao);
+    return row;
