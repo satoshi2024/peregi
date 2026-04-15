@@ -1,11 +1,1 @@
-    } else {
-        hyojiNayao = info.getCsvData();
-    }
-    
-    // 追加检测并替换逻辑
-    if (hyojiNayao != null && hyojiNayao.contains("★")) {
-        hyojiNayao = hyojiNayao.replace("★", "｜");
-    }
-    
-    row.setKomokuNayao(hyojiNayao);
-    return row;
+エラー「11341」につきましては、画面上の対象項目が入力不可の状態となっているため、画面での再現は実施できておりません。
