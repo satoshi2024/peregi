@@ -1,8 +1,8 @@
-    FETCH CDATA INTO RDATA;
-    EXIT WHEN CDATA%NOTFOUND;
-
-    -- ====== 测试用：限制只处理特定的人员 ======
-    IF RDATA.KOJIN_NO NOT IN ('1015340440', '1015335862') THEN
-        CONTINUE;
-    END IF;
-    -- =======================================
+    -- ...(前面的各种 VSQL 拼接逻辑)
+    
+    -- ====== 测试专用：在底层 SQL 直接限制抽出数据，大幅提升速度 ======
+    VSQL := VSQL || ' AND A.KOJIN_NO IN (''1015340440'', ''1015335862'') ';
+    -- ===============================================================
+    
+    RETURN (VSQL);
+END FUNC_VSQL_GET;
