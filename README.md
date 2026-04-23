@@ -1,11 +1,21 @@
-根据你提供的 IT 结合测试规格书（IT仕様書）模板以及我们刚刚修复的 **QA #28073** 逻辑，你需要追加针对 NULL 值替换为 '000000' 的异常/边界测试。
-你可以参考以下内容，直接复制到 Excel 相应的列中。由于不知道你具体的测试编号（No）排到了哪里，这里暂用 006-001 和 006-002 作为示例。
-### 追加测试用例 (テストケース)
-| No | 種別 | アクション・条件 (操作与条件) | 遷移先画面/帳票 (输出目标) | 確認内容 (确认内容) |
-|---|---|---|---|---|
-| **006-001** | データ検証 | テストデータとして、「住民登録外課税区分」が 1 であり、かつ連携元の市区町村コードが取得できない（NULLとなる）レコードを用意し、連携処理を実行する。 | 中間ワークテーブル または 連携ファイル | 処理が正常終了し、出力された該当レコードの「住民登録外課税者住民登録市区町村コード」に **'000000'** がセットされていること。 |
-| **006-002** | データ検証 | テストデータとして、「他団体課税対象区分」が 1 であり、かつ連携元の課税先市区町村コードが取得できない（NULLとなる）レコードを用意し、連携処理を実行する。 | 中間ワークテーブル または 連携ファイル | 処理が正常終了し、出力された該当レコードの「他団体課税対象者の課税先市区町村コード」に **'000000'** がセットされていること。 |
-### 💡 准备测试数据的提示（给开发/测试人员的备忘）：
-为了让这两个 Case 成功走到 NVL 的逻辑分支，你在造测试数据（Test Data）时需要确保：
- 1. 目标用户的区分字段（JUGAI_KBN 或 TADANTAI_KBN）必须为 1。
- 2. 对应的外键或关联字段在表 GABTSHIKUCHOSON 中**不存在匹配的数据**，这样在执行 SELECT JICHITAI_CD ... 时就会触发 EXCEPTION WHEN OTHERS THEN NJICHITAI_CD := NULL;，从而完美验证你刚刚加上的 '000000' 补全逻辑。
+-- 1. 统一检索个人基本信息表 (包含主表、履历表、差分表)
+SELECT 'ZABTGANTAN (主表)' AS TABLE_NAME, NENDO, KOJIN_NO 
+FROM ZABTGANTAN WHERE KOJIN_NO IN ('1015340440', '1015335862')
+UNION ALL
+SELECT 'ZABTGANTAN_R (履历表)' AS TABLE_NAME, NENDO, KOJIN_NO 
+FROM ZABTGANTAN_R WHERE KOJIN_NO IN ('1015340440', '1015335862')
+UNION ALL
+SELECT 'ZABTGANTAN_D (删除/差分表)' AS TABLE_NAME, NENDO, KOJIN_NO 
+FROM ZABTGANTAN_D WHERE KOJIN_NO IN ('1015340440', '1015335862');
+
+-- 2. 检索课税表
+SELECT 'ZABTKAZEI (课税表)' AS TABLE_NAME, NENDO, KOJIN_NO 
+FROM ZABTKAZEI WHERE KOJIN_NO IN ('1015340440', '1015335862');
+
+-- 3. 检索住外管理表（你要让它取不到值的表）
+SELECT 'ZABTJUGAIKANRI (住外管理表)' AS TABLE_NAME, 'N/A' AS NENDO, KOJIN_NO 
+FROM ZABTJUGAIKANRI WHERE KOJIN_NO IN ('1015340440', '1015335862');
+
+-- 4. 检索中间工作表（程序跑完后写入的表）
+SELECT 'ZAAW010o007WK (中间Work表)' AS TABLE_NAME, NENDO, KOJIN_NO 
+FROM ZAAW010o007WK WHERE KOJIN_NO IN ('1015340440', '1015335862');
