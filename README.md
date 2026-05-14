@@ -1,24 +1,31 @@
-既然普徴的问题已经解决，我们将目光完全聚焦在**特徴（特别征收）**的缺陷上。
-根据工单 QA #28598 的描述，关于特徴的故障表现如下：
- * 特徴変更通知書（個人用）可以正常勾选并注册。
- * **特徴納税通知書（事業所用・個人用）** 以及 **特徴変更通知書（事業所用）** 的复选框处于非活性状态，无法勾选，导致无法注册返还信息。
-结合您提供的代码，以下是针对**特徴（Tokucho）**的故障原因分析及详细改修步骤。
-### 🐞 故障原因分析（特征篇）
- 1. **前端复选框被硬编码锁死（导致现象：复选框非活性）**
-   在 ZAB002S004.jsp 文件的 doPrintChange(obj) 函数中（见 image_15.png），代码存在严重的硬编码限制。
-   逻辑明确写死：只有当 selectId == 509（即特徴変更通知書-個人用）时，henreiCheckValue（返戻情報登録有無）复选框才会被激活（disabled = false）。选择其他所有的特征账票（如508、514、515等），都会走入 else 分支，被强制置灰并取消勾选。这就是为什么工单里提到只有 509 能点的原因。
- 2. **后端插入数据时账票名称与抬头被写死（潜在的数据错误）**
-   即便前端放开了勾选限制，后端在执行注册时也存在硬编码问题。在 ZAB002S004_TsokujiDaoImpl.java 的 insertZRATKOUJI_INF 方法中（见 image_41.png）：
-   * map.put("title", "納税通知書 (事業所用)");：无论打印哪种特征账票，插入数据库的标题永远被写死成“事业所用”。
-   * map.put("shimei", ZAAUtil.getStringValue(paramMap, "JIGYOSYO_KANJI"));：姓名只获取事业所汉字名。如果是“個人用”的账票，这里极有可能取不到值，导致注册数据的姓名为空。
-### 🛠️ 详细改修步骤（特征篇）
-需要对前端 JS 控制逻辑和后端数据组装逻辑进行同步修改。
-#### 步骤 1：前端解除特征账票的 Checkbox 禁用限制
-**目标文件**：ZAB002S004.jsp (参考 image_15.png 第 517 行附近 doPrintChange 方法)
-将原本只允许 509 激活的逻辑，扩展到所有特征类对象账票。通常特征相关的 selectId 包括：508(特徴納税-個人用), 509(特徴変更-個人用), 514(特徴納税-事業所用), 515(特徴変更-事業所用)。
-**修改方案**：将 henkoOption 的控制与 henreiCheckValue 的控制解耦。
+根据您提供的最新截图（image_63.png 至 image_66.png），我已经为您整理好“步骤1（前端解绑）”和“步骤2（后端解绑）”的具体改修代码。
+您可以直接参考以下代码对比进行修改。
+### 🛠️ 步骤 1：前端解除复选框置灰限制（对应 image_63.png）
+**修改文件**：ZAB002S004.jsp
+**修改位置**：约第 517 行 if (i == 509) 的逻辑处。
+**改修说明**：目前代码把 henkoOption（变更选项）和 henreiCheckValue（返还信息复选框）强行绑在一起，且只对 509 开放。我们需要将它们**拆开独立控制**。
+**具体代码**：
 ```javascript
-// 保留原有针对 509 特有的 henkoOption 控制
+// ====== 【修改前】 (image_63.png 第517行起) ======
+if (i == 509) {
+    if (document.ZAB002S004Form.henkoOption) {
+        document.ZAB002S004Form.henkoOption.disabled = false;
+    }
+    if (document.ZAB002S004Form.henreiCheckValue) {
+        document.ZAB002S004Form.henreiCheckValue.disabled = false;
+    }
+} else {
+    if (document.ZAB002S004Form.henkoOption) {
+        document.ZAB002S004Form.henkoOption.disabled = true;
+    }
+    if (document.ZAB002S004Form.henreiCheckValue) {
+        $("#henreiCheckValue").attr("checked", false);
+        document.ZAB002S004Form.henreiCheckValue.disabled = true;
+    }
+}
+
+// ====== 【修改后】 ======
+// 1. 保留原本专门针对 509 的 henkoOption 逻辑
 if (i == 509) {
     if (document.ZAB002S004Form.henkoOption) {
         document.ZAB002S004Form.henkoOption.disabled = false;
@@ -29,53 +36,63 @@ if (i == 509) {
     }
 }
 
-// 新增独立的返还信息复选框控制（加入普徴修复时所需的ID，以及特征的 508, 509, 514, 515 等）
-var allowedIds = [508, 509, 514, 515]; // 注：请将您在普徴中允许的ID也一并加入此数组
-if (allowedIds.includes(parseInt(i))) {
+// 2. 将 henreiCheckValue 的逻辑独立出来，放开特征的多个账票
+// ID含义：508(特徵納税-個人), 509(特徵変更-個人), 514(特徵納税-事業所), 515(特徵変更-事業所)
+// （注：如果在另一个对话里已经加入了普徴的ID，请把它们合并到这个数组里）
+var allowedHenreiIds = [508, 509, 514, 515]; 
+
+if (allowedHenreiIds.includes(parseInt(i))) {
     if (document.ZAB002S004Form.henreiCheckValue) {
         document.ZAB002S004Form.henreiCheckValue.disabled = false;
     }
 } else {
     if (document.ZAB002S004Form.henreiCheckValue) {
-        $("#henreiCheckValue").attr("checked", false);
-        document.ZAB002S004Form.henreiCheckValue.disabled = true;
+        $("#henreiCheckValue").attr("checked", false); // 不在允许列表内的，取消勾选
+        document.ZAB002S004Form.henreiCheckValue.disabled = true; // 并且置灰
     }
 }
 
 ```
-#### 步骤 2：后端动态生成账票标题与处理个人姓名
-**目标文件**：ZAB002S004_TsokujiDaoImpl.java (参考 image_41.png 的 insertZRATKOUJI_INF 方法)
-去除写死的 "納税通知書 (事業所用)"，根据前端传来的 selectId 动态判断账票名称；同时兼容获取“個人用”情况下的纳税人姓名。
-**修改方案**：
+### 🛠️ 步骤 2：后端动态生成账票标题与处理个人姓名（对应 image_65.png）
+**修改文件**：ZAB002S004_TsokujiDaoImpl.java
+**修改位置**：insertZRATKOUJI_INF 方法中，约第 146 行至 149 行。
+**改修说明**：目前代码在第146行硬编码了 map.put("title", "納税通知書 (事業所用)")，在第149行硬编码提取 JIGYOSYO_KANJI 作为姓名。我们需要将其改为根据传入的 selectId 动态判断。
+**具体代码**：
 ```java
-private void insertZRATKOUJI_INF(Map<String, Object> paramMap, ZAB002S004_TsokujiParam tsokujiParam) {
-    // ... 前置代码保持不变 ...
+// ====== 【修改前】 (image_65.png 第146行 - 149行) ======
+// map.put("title", "納税通知書 (事業所用)"); // 帳票名
+// map.put("kojinNo", ZAAUtil.getStringValue(paramMap, "SHITEI_NO"));// 納税者番号
+// map.put("sofusakiKojinNo", ZAAUtil.getStringValue(paramMap, "SHITEI_NO"));// 送付先個人番号
+// map.put("shimei", ZAAUtil.getStringValue(paramMap, "JIGYOSYO_KANJI"));// 発送先宛名
 
-    // 1. 动态判断账票名称 (title)
-    String selectId = tsokujiParam.getSelectId();
-    String reportTitle = "納税通知書 (事業所用)"; // 默认值
-    
-    if ("508".equals(selectId)) {
-        reportTitle = "特徴納税通知書 (個人用)";
-    } else if ("509".equals(selectId)) {
-        reportTitle = "特徴変更通知書 (個人用)";
-    } else if ("514".equals(selectId)) {
-        reportTitle = "特徴納税通知書 (事業所用)";
-    } else if ("515".equals(selectId)) {
-        reportTitle = "特徴変更通知書 (事業所用)";
-    }
-    map.put("title", reportTitle); // 替换原来的 map.put("title", "納税通知書 (事業所用)");
 
-    // 2. 兼容提取姓名 (shimei)
-    // 优先取事业所名，若为空(说明是個人用)，则取个人姓名
-    String shimei = ZAAUtil.getStringValue(paramMap, "JIGYOSYO_KANJI");
-    if (StringUtils.isEmpty(shimei)) {
-        // 替换 "SHIMEI_KANJI" 为实际 SQL 中个人姓名的列名，如 "KOJIN_SHIMEI" 等
-        shimei = ZAAUtil.getStringValue(paramMap, "SHIMEI_KANJI"); 
-    }
-    map.put("shimei", shimei); // 替换原来的 map.put("shimei", ZAAUtil.getStringValue(paramMap, "JIGYOSYO_KANJI"));
+// ====== 【修改后】 ======
+// 1. 动态判断账票名称 (title)
+String selectId = tsokujiParam.getSelectId();
+String reportTitle = "納税通知書 (事業所用)"; // 默认兜底值
 
-    // ... 后续 insert 逻辑保持不变 ...
+if ("508".equals(selectId)) {
+    reportTitle = "特徴納税通知書 (個人用)";
+} else if ("509".equals(selectId)) {
+    reportTitle = "特徴変更通知書 (個人用)";
+} else if ("514".equals(selectId)) {
+    reportTitle = "特徴納税通知書 (事業所用)";
+} else if ("515".equals(selectId)) {
+    reportTitle = "特徴変更通知書 (事業所用)";
 }
+map.put("title", reportTitle); // 帳票名
+
+map.put("kojinNo", ZAAUtil.getStringValue(paramMap, "SHITEI_NO"));// 納税者番号
+map.put("sofusakiKojinNo", ZAAUtil.getStringValue(paramMap, "SHITEI_NO"));// 送付先個人番号
+
+// 2. 兼容提取姓名 (shimei)
+// 优先取事业所汉字名，如果没有（即为空，说明是個人用），则取个人姓名
+String shimei = ZAAUtil.getStringValue(paramMap, "JIGYOSYO_KANJI");
+if (shimei == null || shimei.trim().isEmpty()) {
+    // 【重点注意】：请确认您系统 SQL 返回的个人姓名字段到底是叫 "SHIMEI_KANJI" 还是别的名字，这里以 "SHIMEI_KANJI" 举例
+    shimei = ZAAUtil.getStringValue(paramMap, "SHIMEI_KANJI"); 
+}
+map.put("shimei", shimei);// 発送先宛名
 
 ```
+完成这两步修改后，画面的复选框会被正确激活，同时后端插入到数据库中的“返还信息记录”，其账票标题和收件人姓名也不会再出现全部变成“事业所用”和空名的数据错误了。
