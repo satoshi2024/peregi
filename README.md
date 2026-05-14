@@ -1,53 +1,108 @@
-太精彩了！结合您最新发来的这两张图片以及前面所有的代码拼图，这个困扰 QA 的“未解之谜”终于被彻底揭开了！
-我们之前在 Controller 层追踪到参数没有丢，现在在 ZAB001S007_FsokujiDaoImpl.java 的 CallPrintRun 方法中，我找到了**绝对的“案发现场”**。
-这根本不是参数没传进去的问题，而是一个非常经典的**“代码执行顺序错位（时序Bug）”**！
-以下是详细的破案报告和修复方案：
-### 🕵️ 核心真凶：一段“抢跑”的代码
-请您把目光锁定在 **image_70.png 和 image_71.png 的第 550 行到 582 行**。
-这段代码是 DIS.Zhangjiurui 在 2024/05/07 添加的新功能，专门用来处理“返戻情報登録”（退回信息注册）：
+没问题！既然我们要把这个 Bug 彻底修好，那就需要落实到具体的代码行和具体的改法上。
+为了让您（或者负责开发的同事）能够直接参考并进行代码修改，我把针对前端 (ZAB001S007.jsp) 和后端 (ZAB001S007_FsokujiDaoImpl.java) 的详细改修方案给您梳理成“傻瓜式”的替换指南。
+### 详细步骤 1：后端 Java 逻辑拆分与移动 (ZAB001S007_FsokujiDaoImpl.java)
+这个文件里的问题在于：**“防重校验”和“数据入库”被绑在一起，而且执行得太早了。** 我们需要把它们拆开。
+**动作 A：修改原位置代码（保留校验，删除入库）**
+ * **定位**：参考 image_70.png，找到大约第 550 行（2024/05/07 DIS.Zhangjiurui Add start 的位置）。
+ * **修改方式**：将原来的 if ("1".equals(searchInfo.getHenreiJohoToroku())) { ... } 整个代码块，**替换为以下只做拦截校验的代码**：
 ```java
-// 第552行: 校验前端是否勾选了复选框 (值为"1")
+// 2024/05/07 DIS.Zhangjiurui Add start (改修：仅保留排他校验)
+// 返戻情報登録有無データ存在チェックを実施する。
 if ("1".equals(searchInfo.getHenreiJohoToroku())) {
-    ...
-    // 第566行: 去数据库查询刚刚生成的通知书数据 (ZABWFUCHBOOK)
-    List<Map<String, Object>> listMap = getZABWFUCHBOOK(searchInfo); 
-    if (listMap != null && !listMap.isEmpty()) {
-        for (...) {
-            // 第572行: 执行最终的 INSERT，把退回信息落库！
-            zab0010Repository.insertZRATKOUJI_INF_067(insertMap); 
-        }
+    Map<String, Object> checkParamMap = new HashMap<String, Object>();
+    checkParamMap.put("gyoumuCd", ZABConstants.CS_GYOMUCODE); // 業務コード = ZAB
+    checkParamMap.put("gyoumuSyosaiCd", ZABConstants.CS_GYOMUSUBCODE); // 業務詳細コード = 0
+    checkParamMap.put("chohyoCd", searchInfo.getSelectId()); // 帳票コード
+    checkParamMap.put("nendobun", searchInfo.getNendobun()); // 年度分
+    checkParamMap.put("choteiNendo", searchInfo.getChotei_nendo()); // 調定年度
+    checkParamMap.put("tsuchiNo", searchInfo.getTsuchi_no()); // 通知書番号
+    checkParamMap.put("hassoubi", searchInfo.getSendDate_num()); // 発送日
+    
+    int count = zab0010Repository.selectZRATKOUJI_INF_065(checkParamMap);
+    // 件数チェックし0件の時 -> 不是0件说明已经注册过，直接拦截！
+    if (count != 0) {
+        returnVector.add(StringUtils.EMPTY); // 即時帳票発行履歴を登録しない設定
+        returnVector.add("1"); // 返回1触发Controller层的业务报错
+        return returnVector;
     }
 }
+// 2024/05/07 DIS.Zhangjiurui Add end
 
 ```
-**看逻辑是不是很完美？前端勾了，后台也 if 进去了，也写了 insert。那为什么存不上？**
-因为这段代码**执行得太早了**！
-在这个即时发行（Online Print）的业务流中，真正负责在数据库里生成“通知书数据”的核心引擎，是底层的 PL/SQL 存储过程。请看 **image_73.png 的第 649 行**：
+**动作 B：在打印完成后追加“数据入库”逻辑**
+ * **定位**：参考 image_82.png，找到大约第 712 行的结尾。这里是 PL/SQL (execOnlinePrint) 执行成功，且各种常规日志记录完毕，马上要 return 的地方。
+ * **修改方式**：在 returnVector.add(reportUri); （大约 713 行）的**正上方**，插入我们刚才删掉的数据入库逻辑：
 ```java
-// 第649行: 执行真正的在线打印 PL/SQL，生成业务数据
-rtnFlg = kka000CommonDao.execOnlinePrint(chohyoParam); 
+        // ====== 【本次改修追加 start】：在PL/SQL生成台账数据后，再执行返戻信息的入库 ======
+        if ("1".equals(searchInfo.getHenreiJohoToroku())) {
+            // 普徴通知書（ブッキング様式対応版）の情報を取得する
+            List<Map<String, Object>> listMap = getZABWFUCHBOOK(searchInfo);
+            if (listMap != null && !listMap.isEmpty()) {
+                for (int i = 0; i < listMap.size(); i++) {
+                    // 登録データ編集
+                    Map<String, Object> insertMap = getZratkoujiInf(listMap.get(i), searchInfo.getSendDate_num());
+                    // 公示送達情報を登録する
+                    zab0010Repository.insertZRATKOUJI_INF_067(insertMap);
+                }
+            }
+        }
+        // ====== 【本次改修追加 end】 ======
+
+        returnVector.add(reportUri); // 这是原本就有的代码
+        returnVector.add("0");       // 这是原本就有的代码
+        return returnVector;         // 这是原本就有的代码
+    }
 
 ```
-### 💥 Bug 的致命逻辑链
- 1. 代码跑到第 566 行，试图调用 getZABWFUCHBOOK() 去查通知书数据。
- 2. 但是此时，第 649 行的 execOnlinePrint **还没有执行**！数据库里根本没有这次打印的底表数据。
- 3. 因此，listMap **永远是空的**。
- 4. 第 568 行的 if (!listMap.isEmpty()) 直接进不去，循环跳过，第 572 行的 insert 被完美避开。
- 5. 等到第 649 行 PL/SQL 终于执行完、数据有了，代码却直接 return 结束了。
-**这就好比：顾客还没开始点菜，服务员就跑到厨房去端菜，端不到菜自然就什么都不上了。**
-这同时完美解释了 QA 的疑问：**为什么“特征变更通知书”就能存上？**
-因为开发人员在写“特征（特别征收）”的 DaoImpl 时，肯定把这段 insert 逻辑老老实实地放在了 execOnlinePrint 之后，而写“普征”画面时，放错了位置。
-### 🛠️ 终极修复方案指引
-要完美平息 QA #28598 这个工单，您需要分两步走：
-#### 第一步：修复“普征纳税通知书 (410)”存不上的 Bug（后端）
-在 ZAB001S007_FsokujiDaoImpl.java 中：
- 1. 选中第 550 行到 582 行（就是 DIS.Zhangjiurui Add start 到 Add end 的那整个 Block）。
- 2. 将它们**剪切**。
- 3. 往下翻，找到 PL/SQL 执行成功后的位置。比如在 **image_73.png 的第 655 行 if (rtnFlg) { reportUri = "SUCCESS"; ... } 内部**，或者在所有 execOnlinePrint 执行完毕且确认 rtnFlg == true 准备组合 returnVector 之前。
- 4. 将这段代码**粘贴**过去。
- 5. *注意：调整位置时，请确保 searchInfo 等上下文变量在新的位置依然有效。*
-#### 第二步：响应 QA 诉求，放开其他报表的复选框（前/后端配合）
-既然 QA 要求“普征变更通知书 (411)”等报表也要能注册：
- 1. **改前端 (JSP)**：回到 ZAB001S007.jsp 的 doPrintChange 函数，把对应报表 ID 的分支里加上 sel_check.disabled = false;（我们之前分析过的步骤）。并在 HTML 的 <c:if> 中放开对应的渲染限制。
- 2. **改后端 (DaoImpl)**：确认移动后的那段落库代码中，getZABWFUCHBOOK() 方法（image_74.png 第 716 行）内部的 SQL (selectZABWFUCHBOOK_066) 是否兼容 411 这种变更通知书的查询。如果变更通知书的数据存在另一张表里，您需要在这里加个 if (chohyoNo.equals("411")) 去查对应的表。
-问题已彻底定位！您可以直接拿着这个结论去修改代码并准备提交测试了。祝您杀虫顺利！如果修改过程中对落库位置还有疑虑，随时沟通。
+### 详细步骤 2：前端 JSP 页面放开限制 (ZAB001S007.jsp)
+前端的问题在于：代码写死了只有当报表 ID 为 410 (普征纳税通知书) 时，复选框才能用。根据 QA 的要求，我们需要把 411 (变更通知书) 等相关报表也一并放开。
+**动作 A：修改 JavaScript 交互逻辑 (OnChange 触发)**
+ * **定位**：参考 image_11.png，找到 doPrintChange(obj) 函数，大约在第 268 行到 274 行之间。
+ * **修改方式**：原本只有 if (i == 410) 里有激活复选框的代码。我们需要在 else if (i == 411 || i == 413 || i == 414 || i == 412) 这个分支里，也加上激活代码：
+```javascript
+    // ...
+    if (i == 410) {
+        document.ZAB001S007Form.st_01.disabled = false;
+        document.ZAB001S007Form.ed_01.disabled = false;
+        document.ZAB001S007Form.sel_check.disabled = false; // 410 原本就有
+        document.ZAB001S007Form.st_01Hidden.value = document.ZAB001S007Form.st_01.value;
+        // ...
+    } else if (i == 411 || i == 413 || i == 414 || i == 412) {
+        document.ZAB001S007Form.st_11_num.disabled = false;
+        document.ZAB001S007Form.st_12_num.disabled = false;
+        // ...
+        // ====== 【本次改修追加】：让变更通知书等也能点击复选框 ======
+        document.ZAB001S007Form.sel_check.disabled = false; 
+    }
+
+```
+**动作 B：修改 HTML 初始渲染逻辑 (页面初次加载)**
+ * **定位**：参考 image_22.png 和 image_23.png，找到大约第 1476 行到 1511 行。这里用 JSTL 标签 <c:if test="..."> 控制了页面刚打开时的状态。
+ * **修改方式**：将硬编码的 410 条件扩大，包含进 QA 要求的 411、412 等（具体包含哪些ID，请根据业务需求确认，这里假设 410 到 414 都需要放开）。
+找到这段代码：
+```jsp
+<c:if test="${ZAB001S007_VIEW.selectId != '410'}">
+    <!-- 这里面渲染的是 disabled="true" 的输入框和复选框 -->
+</c:if>
+<c:if test="${ZAB001S007_VIEW.selectId == '410'}">
+    <!-- 这里面渲染的是正常可用的输入框和复选框 -->
+</c:if>
+
+```
+**修改为：**
+```jsp
+<%-- 将条件改为排除 410, 411, 412, 413, 414 --%>
+<c:if test="${ZAB001S007_VIEW.selectId != '410' && ZAB001S007_VIEW.selectId != '411' && ZAB001S007_VIEW.selectId != '412' && ZAB001S007_VIEW.selectId != '413' && ZAB001S007_VIEW.selectId != '414'}">
+    <!-- 这里面渲染的是 disabled="true" 的代码保持不变 -->
+</c:if>
+
+<%-- 将条件改为包含 410, 411, 412, 413, 414 --%>
+<c:if test="${ZAB001S007_VIEW.selectId == '410' || ZAB001S007_VIEW.selectId == '411' || ZAB001S007_VIEW.selectId == '412' || ZAB001S007_VIEW.selectId == '413' || ZAB001S007_VIEW.selectId == '414'}">
+    <!-- 这里面渲染的是正常的代码保持不变 -->
+</c:if>
+
+```
+**总结一下这次改修的灵魂：**
+ * **前端**：不再“偏心” 410，把 411 等报表的复选框开关也一并打开。
+ * **后端**：查重防抖留在打印前，落库 Insert 挪到打印后。
+按这个详细方案改完，QA #28598 这个工单就可以完美关单了！
