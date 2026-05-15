@@ -1,98 +1,24 @@
-根据您提供的最新截图（image_63.png 至 image_66.png），我已经为您整理好“步骤1（前端解绑）”和“步骤2（后端解绑）”的具体改修代码。
-您可以直接参考以下代码对比进行修改。
-### 🛠️ 步骤 1：前端解除复选框置灰限制（对应 image_63.png）
-**修改文件**：ZAB002S004.jsp
-**修改位置**：约第 517 行 if (i == 509) 的逻辑处。
-**改修说明**：目前代码把 henkoOption（变更选项）和 henreiCheckValue（返还信息复选框）强行绑在一起，且只对 509 开放。我们需要将它们**拆开独立控制**。
-**具体代码**：
-```javascript
-// ====== 【修改前】 (image_63.png 第517行起) ======
-if (i == 509) {
-    if (document.ZAB002S004Form.henkoOption) {
-        document.ZAB002S004Form.henkoOption.disabled = false;
-    }
-    if (document.ZAB002S004Form.henreiCheckValue) {
-        document.ZAB002S004Form.henreiCheckValue.disabled = false;
-    }
-} else {
-    if (document.ZAB002S004Form.henkoOption) {
-        document.ZAB002S004Form.henkoOption.disabled = true;
-    }
-    if (document.ZAB002S004Form.henreiCheckValue) {
-        $("#henreiCheckValue").attr("checked", false);
-        document.ZAB002S004Form.henreiCheckValue.disabled = true;
-    }
-}
-
-// ====== 【修改后】 ======
-// 1. 保留原本专门针对 509 的 henkoOption 逻辑
-if (i == 509) {
-    if (document.ZAB002S004Form.henkoOption) {
-        document.ZAB002S004Form.henkoOption.disabled = false;
-    }
-} else {
-    if (document.ZAB002S004Form.henkoOption) {
-        document.ZAB002S004Form.henkoOption.disabled = true;
-    }
-}
-
-// 2. 将 henreiCheckValue 的逻辑独立出来，放开特征的多个账票
-// ID含义：508(特徵納税-個人), 509(特徵変更-個人), 514(特徵納税-事業所), 515(特徵変更-事業所)
-// （注：如果在另一个对话里已经加入了普徴的ID，请把它们合并到这个数组里）
-var allowedHenreiIds = [508, 509, 514, 515]; 
-
-if (allowedHenreiIds.includes(parseInt(i))) {
-    if (document.ZAB002S004Form.henreiCheckValue) {
-        document.ZAB002S004Form.henreiCheckValue.disabled = false;
-    }
-} else {
-    if (document.ZAB002S004Form.henreiCheckValue) {
-        $("#henreiCheckValue").attr("checked", false); // 不在允许列表内的，取消勾选
-        document.ZAB002S004Form.henreiCheckValue.disabled = true; // 并且置灰
-    }
-}
-
-```
-### 🛠️ 步骤 2：后端动态生成账票标题与处理个人姓名（对应 image_65.png）
-**修改文件**：ZAB002S004_TsokujiDaoImpl.java
-**修改位置**：insertZRATKOUJI_INF 方法中，约第 146 行至 149 行。
-**改修说明**：目前代码在第146行硬编码了 map.put("title", "納税通知書 (事業所用)")，在第149行硬编码提取 JIGYOSYO_KANJI 作为姓名。我们需要将其改为根据传入的 selectId 动态判断。
-**具体代码**：
-```java
-// ====== 【修改前】 (image_65.png 第146行 - 149行) ======
-// map.put("title", "納税通知書 (事業所用)"); // 帳票名
-// map.put("kojinNo", ZAAUtil.getStringValue(paramMap, "SHITEI_NO"));// 納税者番号
-// map.put("sofusakiKojinNo", ZAAUtil.getStringValue(paramMap, "SHITEI_NO"));// 送付先個人番号
-// map.put("shimei", ZAAUtil.getStringValue(paramMap, "JIGYOSYO_KANJI"));// 発送先宛名
-
-
-// ====== 【修改后】 ======
-// 1. 动态判断账票名称 (title)
-String selectId = tsokujiParam.getSelectId();
-String reportTitle = "納税通知書 (事業所用)"; // 默认兜底值
-
-if ("508".equals(selectId)) {
-    reportTitle = "特徴納税通知書 (個人用)";
-} else if ("509".equals(selectId)) {
-    reportTitle = "特徴変更通知書 (個人用)";
-} else if ("514".equals(selectId)) {
-    reportTitle = "特徴納税通知書 (事業所用)";
-} else if ("515".equals(selectId)) {
-    reportTitle = "特徴変更通知書 (事業所用)";
-}
-map.put("title", reportTitle); // 帳票名
-
-map.put("kojinNo", ZAAUtil.getStringValue(paramMap, "SHITEI_NO"));// 納税者番号
-map.put("sofusakiKojinNo", ZAAUtil.getStringValue(paramMap, "SHITEI_NO"));// 送付先個人番号
-
-// 2. 兼容提取姓名 (shimei)
-// 优先取事业所汉字名，如果没有（即为空，说明是個人用），则取个人姓名
-String shimei = ZAAUtil.getStringValue(paramMap, "JIGYOSYO_KANJI");
-if (shimei == null || shimei.trim().isEmpty()) {
-    // 【重点注意】：请确认您系统 SQL 返回的个人姓名字段到底是叫 "SHIMEI_KANJI" 还是别的名字，这里以 "SHIMEI_KANJI" 举例
-    shimei = ZAAUtil.getStringValue(paramMap, "SHIMEI_KANJI"); 
-}
-map.put("shimei", shimei);// 発送先宛名
-
-```
-完成这两步修改后，画面的复选框会被正确激活，同时后端插入到数据库中的“返还信息记录”，其账票标题和收件人姓名也不会再出现全部变成“事业所用”和空名的数据错误了。
+根据日本 5ch 论坛、Yahoo 知恵袋以及各大不动产咨询板块的真实案例，UR 团地对于违规养宠（尤其是犬猫）的处理非常程式化且强硬。
+由于 UR 属于公营性质的独立行政法人，其操作流程比民间中介更透明，但也更没有“商量余地”。以下是日本网友总结的真实后果和流程：
+### 1. 严格的“阶梯式”强制措施
+论坛上的讨论显示，UR 的处理通常遵循以下路径，且不可逆：
+ * **首轮警告（你现在的阶段）：** 电话通知或发放“指导文书”。此时 UR 还在给你留面子，如果你能立刻送走并配合检查，通常不会立即解约。
+ * **最终警告：** 如果拒绝配合，UR 会发出带有**内容证明**的邮寄信函（强制退去予告）。在法律意义上，这已经是在为起诉做准备。
+ * **解除合同：** 相比民间房东可能因为法律程序繁琐而犹豫，UR 对待违规行为会直接起诉并强制执行。日本网友普遍反映：“跟 UR 拖延时间是没有任何胜算的”。
+### 2. 邻居关系的“毁灭性”打击
+论坛反馈显示，绝大多数被发现的情况都是因为**邻居举报**（声音、气味、猫砂掉落）。
+ * **持续监视：** 一旦接到投诉，管理处（管理事務所）会持续关注你的房间。
+ * **无形压力：** 在日本社区文化中，违规养宠被视为严重的“迷惑行为”。即使你把宠物送走了，邻居可能会继续以“残留气味”或“心理不安”为由进行骚扰或向管理处施压。
+### 3. 金钱上的巨大代价
+这是各大论坛讨论最多的“痛点”。退租时的**原状恢复费用**将呈几何倍数增长：
+ * **壁纸与地板：** 只要发现一处抓痕或一点异味，UR 往往会要求**全屋更换**壁纸和地板，而不是局部修补。
+ * **特殊清扫：** 为了消除对动物过敏者的隐患，UR 会进行专业级别的除臭（消臭施工），这笔费用由违规者全额承担。
+ * **案例参考：** 论坛上有住户反馈，原本几万日元的退房费，因为违规养猫，最后被要求赔偿 **50万至100万日元** 不等。
+### 4. “黑名单”隐患
+ * **信用记录：** 虽然 UR 不一定会直接影响你的民间信用卡信用，但在 UR 内部系统中，这种“强制退去”或“严重违约”会导致你**终身无法再次申请 UR 住宅**。考虑到 UR 房源在日本的便利性（免押金、免礼金、免中介费），失去这个选择权对在日长期居住是非常不利的。
+### 论坛网友给出的“最后建议”：
+ 1. **切勿狡辩：** 有人尝试说是“朋友临时放一下”，但在日本法律语境下，只要动物出现在房内，违约即成立。
+ 2. **立刻转移：** 很多网友的建议是：接到电话的 24 小时内必须把宠物转到合法地点。
+ 3. **主动配合：** 在管理人员上门检查时，态度极度诚恳，并主动申请“消臭处理”，有时能减缓被立即强制解约的风险。
+**重点提醒：**
+由于你目前已经有明确的搬家计划（8-9月），目前的紧要关头是**确保不要在搬家前被“强制执行”**。如果现在闹僵，可能等不到 8 月你就会被迫搬离，且面临极高的违约索赔。
